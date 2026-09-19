@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Registrer deg — spotworthy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="auth-page">
+  <a href="index.html" class="logo auth-logo">
+    <span class="logo-mark">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2c.6 5.4 1.2 8.4 10 10-8.8 1.6-9.4 4.6-10 10-.6-5.4-1.2-8.4-10-10 8.8-1.6 9.4-4.6 10-10Z" fill="var(--cream)"/>
+      </svg>
+    </span>
+    spotworthy
+  </a>
+
+  <div class="auth-card" id="step-1">
+    <h1>Opprett konto</h1>
+    <p class="auth-sub">Gratis å bli med. Ingen kredittkort nødvendig.</p>
+    <form id="register-form">
+      <label class="field-label" for="reg-first">Fornavn</label>
+      <input class="text-input" id="reg-first" type="text" required>
+
+      <label class="field-label" for="reg-last">Etternavn</label>
+      <input class="text-input" id="reg-last" type="text" required>
+
+      <label class="field-label" for="reg-username">Brukernavn</label>
+      <input class="text-input" id="reg-username" type="text" placeholder="f.eks. minaf" required>
+
+      <label class="field-label" for="reg-email">E-post</label>
+      <input class="text-input" id="reg-email" type="email" required>
+
+      <button type="submit" class="btn btn-primary btn-lg auth-submit">Send bekreftelseskode</button>
+    </form>
+    <p class="auth-switch">Har du allerede en konto? <a href="#" id="go-login">Logg inn</a></p>
+  </div>
+
+  <div class="auth-card" id="step-2" hidden>
+    <h1>Bekreft e-posten din</h1>
+    <p class="auth-sub">Vi har sendt en 6-sifret kode til <strong id="sent-email"></strong>.</p>
+    <p class="demo-note" id="demo-code-hint"></p>
+    <form id="verify-form">
+      <label class="field-label" for="reg-code">Bekreftelseskode</label>
+      <input class="text-input" id="reg-code" type="text" inputmode="numeric" maxlength="6" required>
+      <p class="field-error" id="code-error" hidden>Feil kode, prøv igjen.</p>
+      <button type="submit" class="btn btn-primary btn-lg auth-submit">Bekreft og fullfør</button>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

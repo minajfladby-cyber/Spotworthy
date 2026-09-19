@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>spotworthy — Worth a visit, wherever you are</title>
+<meta name="description" content="Følg venner og influencere, og oppdag de beste restaurantene og kafeene gjennom ekte anmeldelser." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2c.6 5.4 1.2 8.4 10 10-8.8 1.6-9.4 4.6-10 10-.6-5.4-1.2-8.4-10-10 8.8-1.6 9.4-4.6 10-10Z" fill="var(--cream)"/>
+        </svg>
+      </span>
+      spotworthy
+    </a>
+
+    <button class="menu-toggle" id="menu-toggle" aria-label="Åpne meny" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-visual" aria-hidden="true">
+        <div class="polaroid-stack">
+          <article class="polaroid polaroid--back">
+            <div class="polaroid-photo photo-2">
+              <svg class="photo-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 8.5c1.6 1.4 3.2 1.4 4.8 0s3.2-1.4 4.8 0 3.2 1.4 4.8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M4 14c1.6 1.4 3.2 1.4 4.8 0s3.2-1.4 4.8 0 3.2 1.4 4.8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+              <button class="pin-badge" title="Se på kart">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.15 7.15 11.73a1.25 1.25 0 0 0 1.7 0C13.5 21.15 20 15.25 20 10c0-4.42-3.58-8-8-8Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+            <div class="polaroid-caption">
+              <span class="place-name">Kafe Solvang</span>
+              <span class="stars">★★★★☆</span>
+            </div>
+          </article>
+
+          <article class="polaroid polaroid--front">
+            <div class="polaroid-photo photo-1">
+              <svg class="photo-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 10.5 12 5l6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7.5 9.5V18a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <button class="pin-badge" title="Se på kart">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.15 7.15 11.73a1.25 1.25 0 0 0 1.7 0C13.5 21.15 20 15.25 20 10c0-4.42-3.58-8-8-8Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+            <div class="polaroid-caption">
+              <span class="place-name">Trattoria Nord</span>
+              <span class="stars">★★★★★</span>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div class="hero-copy">
+        <span class="hero-spark" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2c.6 5.4 1.2 8.4 10 10-8.8 1.6-9.4 4.6-10 10-.6-5.4-1.2-8.4-10-10 8.8-1.6 9.4-4.6 10-10Z" fill="var(--pink)"/>
+          </svg>
+        </span>
+        <h1>Worth a visit, wherever you are.</h1>
+        <a href="registrer.html" class="btn btn-primary btn-lg hero-btn">Registrer deg gratis</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="kontakt" class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="logo logo-footer">
+        <span class="logo-mark">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2c.6 5.4 1.2 8.4 10 10-8.8 1.6-9.4 4.6-10 10-.6-5.4-1.2-8.4-10-10 8.8-1.6 9.4-4.6 10-10Z" fill="var(--cream)"/>
+          </svg>
+        </span>
+        spotworthy
+      </span>
+      <p>Worth a visit, wherever you are.</p>
+    </div>
+    <div class="footer-contact">
+      <h3>Kontakt oss</h3>
+      <a href="mailto:hei@spotworthy.no">hei@spotworthy.no</a>
+      <a href="https://instagram.com" target="_blank" rel="noopener">@spotworthy.app</a>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <p>© 2026 spotworthy. Alle rettigheter reservert.</p>
+  </div>
+</footer>
+
+<!-- DRAWER MENU -->
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="logo">
+      <span class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2c.6 5.4 1.2 8.4 10 10-8.8 1.6-9.4 4.6-10 10-.6-5.4-1.2-8.4-10-10 8.8-1.6 9.4-4.6 10-10Z" fill="var(--cream)"/>
+        </svg>
+      </span>
+      spotworthy
+    </span>
+    <button class="drawer-close" id="drawer-close" aria-label="Lukk meny">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <nav class="drawer-nav">
+    <button type="button" class="drawer-link" data-modal="about">Om spotworthy</button>
+    <a class="drawer-link" href="guide.html">Slik funker det (brukerguide)</a>
+    <a class="drawer-link" href="#kontakt">Kontaktinfo</a>
+    <button type="button" class="drawer-link" id="drawer-login">Logg inn</button>
+    <a class="drawer-link drawer-link--cta" href="registrer.html">Registrer deg</a>
+  </nav>
+</aside>
+
+<!-- ABOUT MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="Lukk">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <h3>Om spotworthy</h3>
+    <p>spotworthy er stedet der du finner ekte anbefalinger fra folk du faktisk stoler på — venner, familie og influencere du følger selv. Ingen betalte anmeldelser og ingen støy, bare ekte bilder, ærlige stjerner og stedene som faktisk er verdt et besøk.</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
