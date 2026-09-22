@@ -12,7 +12,6 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
   deleteDoc,
   addDoc,
   collection,
@@ -60,6 +59,12 @@ function displayName(u) {
   return name || u.username;
 }
 
+function formatDate(timestamp) {
+  if (!timestamp || !timestamp.seconds) return '';
+  const date = new Date(timestamp.seconds * 1000);
+  return date.toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function errorMessageFor(err) {
   const code = err && err.code ? err.code : '';
   if (code.includes('email-already-in-use')) return 'Denne e-postadressen er allerede registrert.';
@@ -72,7 +77,7 @@ function errorMessageFor(err) {
 function postToHTML(post, authorUsername, options) {
   const editable = options && options.editable;
   const photo = post.photo
-    ? `<img src="${post.photo}" alt="">`
+    ? `<img class="post-photo-img" src="${post.photo}" alt="">`
     : `<div class="photo-icon-wrap"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 10.5 12 5l6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 9.5V18a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
   const pin = post.address
     ? `<a class="pin-badge" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}" target="_blank" rel="noopener" title="Se ${escapeHTML(post.address)} på kart">${PIN_SVG}</a>`
@@ -87,6 +92,10 @@ function postToHTML(post, authorUsername, options) {
         <button type="button" class="btn btn-outline btn-sm delete-post-btn" data-id="${post.id}">Slett</button>
       </div>`
     : '';
+  const authorLink = authorUsername
+    ? `<a href="bruker.html?u=${encodeURIComponent(authorUsername)}" class="feed-author-link">@${escapeHTML(authorUsername)}</a>`
+    : '<span>@?</span>';
+  const dateStr = formatDate(post.createdAt);
 
   return `
     <article class="feed-card">
@@ -101,7 +110,7 @@ function postToHTML(post, authorUsername, options) {
       ${post.text ? `<p class="feed-text">${escapeHTML(post.text)}</p>` : ''}
       ${tags}
       <div class="feed-meta">
-        <span>@${escapeHTML(authorUsername || '?')}</span>
+        <span class="feed-meta-left">${authorLink}${dateStr ? `<span class="feed-date">${dateStr}</span>` : ''}</span>
         <span class="vis-pill">${visLabel}</span>
       </div>
       ${actions}
@@ -235,6 +244,25 @@ document.addEventListener('click', async (e) => {
   await renderFeed();
   await renderMyPosts();
 });
+
+/* ---------------- Photo lightbox ---------------- */
+(function initLightbox() {
+  const overlay = document.getElementById('lightbox-overlay');
+  const lightboxImg = document.getElementById('lightbox-image');
+  const closeBtn = document.getElementById('lightbox-close');
+  if (!overlay || !lightboxImg) return;
+
+  document.addEventListener('click', (e) => {
+    const img = e.target.closest('.post-photo-img');
+    if (!img) return;
+    lightboxImg.src = img.src;
+    overlay.classList.add('open');
+  });
+  closeBtn?.addEventListener('click', () => overlay.classList.remove('open'));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+})();
 
 /* ---------------- Password show/hide toggles ---------------- */
 document.querySelectorAll('.password-toggle').forEach((btn) => {
