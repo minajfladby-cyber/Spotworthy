@@ -853,6 +853,7 @@ a { color: inherit; text-decoration: none; }
 }
 .feed-photo { width: 100%; aspect-ratio: 1 / 1; }
 .photo-icon-wrap { color: rgba(23, 24, 28, 0.25); display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.post-photo-img { cursor: zoom-in; }
 .feed-text { margin-top: 10px; font-size: 0.92rem; color: rgba(23, 24, 28, 0.8); }
 .feed-meta {
   display: flex;
@@ -862,6 +863,10 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.8rem;
   color: rgba(23, 24, 28, 0.55);
 }
+.feed-meta-left { display: flex; align-items: center; gap: 8px; }
+.feed-author-link { color: rgba(23, 24, 28, 0.55); font-weight: 600; }
+.feed-author-link:hover { color: var(--pink); }
+.feed-date { color: rgba(23, 24, 28, 0.4); }
 .vis-pill {
   background: var(--mint);
   color: var(--mint-deep);
@@ -871,6 +876,44 @@ a { color: inherit; text-decoration: none; }
 }
 
 .feed-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* Photo lightbox */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 11, 13, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease;
+  z-index: 250;
+}
+.lightbox-overlay.open { opacity: 1; visibility: visible; }
+.lightbox-overlay img {
+  max-width: min(90vw, 640px);
+  max-height: 85vh;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.3); }
 
 /* Custom food tags */
 .custom-tag-row { display: flex; gap: 8px; margin-top: 10px; }
