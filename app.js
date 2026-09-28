@@ -12,6 +12,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   deleteDoc,
   addDoc,
   collection,
@@ -59,10 +60,27 @@ function displayName(u) {
   return name || u.username;
 }
 
-function formatDate(timestamp) {
-  if (!timestamp || !timestamp.seconds) return '';
-  const date = new Date(timestamp.seconds * 1000);
+function formatDate(value) {
+  if (!value) return '';
+  const date = typeof value === 'string'
+    ? new Date(value + 'T00:00:00')
+    : (value.seconds ? new Date(value.seconds * 1000) : null);
+  if (!date || isNaN(date.getTime())) return '';
   return date.toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function todayISO() {
+  const d = new Date();
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+
+function postSortKey(post) {
+  if (post.postDate) {
+    const t = new Date(post.postDate + 'T00:00:00').getTime();
+    if (!isNaN(t)) return t;
+  }
+  return (post.createdAt?.seconds || 0) * 1000;
 }
 
 function errorMessageFor(err) {
@@ -95,7 +113,10 @@ function postToHTML(post, authorUsername, options) {
   const authorLink = authorUsername
     ? `<a href="bruker.html?u=${encodeURIComponent(authorUsername)}" class="feed-author-link">@${escapeHTML(authorUsername)}</a>`
     : '<span>@?</span>';
-  const dateStr = formatDate(post.createdAt);
+  const dateStr = formatDate(post.postDate || post.createdAt);
+  const addressLine = post.address
+    ? `<a class="post-address-line" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}" target="_blank" rel="noopener">${PIN_SVG}<span>${escapeHTML(post.address)}</span></a>`
+    : '';
 
   return `
     <article class="feed-card">
@@ -104,9 +125,10 @@ function postToHTML(post, authorUsername, options) {
         ${pin}
       </div>
       <div class="polaroid-caption">
-        <span class="place-name">${escapeHTML(post.address) || 'Ukjent sted'}</span>
+        <span class="place-name">${escapeHTML(post.placeName) || 'Ukjent sted'}</span>
         <span class="stars">${starString(post.stars)}</span>
       </div>
+      ${addressLine}
       ${post.text ? `<p class="feed-text">${escapeHTML(post.text)}</p>` : ''}
       ${tags}
       <div class="feed-meta">
@@ -133,7 +155,7 @@ async function fetchPostsForUids(uids) {
   if (!uids.length) return [];
   const snap = await getDocs(query(collection(db, 'posts'), where('authorUid', 'in', uids)));
   const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  posts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  posts.sort((a, b) => postSortKey(b) - postSortKey(a));
   return posts;
 }
 
@@ -176,6 +198,7 @@ async function acceptFriendRequest(requesterUid) {
 
 async function declineFriendRequest(requesterUid) {
   await updateDoc(doc(db, 'users', currentUser.uid), { incomingRequests: arrayRemove(requesterUid) });
+  await updateDoc(doc(db, 'users', requesterUid), { sentRequests: arrayRemove(currentUser.uid) });
   currentUser.incomingRequests = (currentUser.incomingRequests || []).filter((u) => u !== requesterUid);
 }
 
@@ -539,6 +562,8 @@ function initCropper(onCropped) {
   const starPicker = document.getElementById('star-picker');
   const postText = document.getElementById('post-text');
   const charCount = document.getElementById('char-count');
+  const dateInput = document.getElementById('post-date');
+  const placeInput = document.getElementById('post-place');
   const addressInput = document.getElementById('post-address');
   const visToggle = document.getElementById('visibility-toggle');
   const tagPicker = document.getElementById('tag-picker');
@@ -600,6 +625,7 @@ function initCropper(onCropped) {
     photoPreviewImg.hidden = true;
     photoPreviewText.hidden = false;
     charCount.textContent = '0/100';
+    dateInput.value = todayISO();
     [...starPicker.children].forEach((b) => b.classList.remove('active'));
     [...visToggle.children].forEach((b) => b.classList.toggle('active', b.dataset.vis === 'offentlig'));
     tagPicker.querySelectorAll('.tag-chip').forEach((b) => b.classList.remove('active'));
@@ -627,6 +653,8 @@ function initCropper(onCropped) {
     }
     postText.value = post.text || '';
     charCount.textContent = `${postText.value.length}/100`;
+    dateInput.value = post.postDate || todayISO();
+    placeInput.value = post.placeName || '';
     addressInput.value = post.address || '';
     [...starPicker.children].forEach((b) => b.classList.toggle('active', Number(b.dataset.star) <= currentStars));
     [...visToggle.children].forEach((b) => b.classList.toggle('active', b.dataset.vis === currentVis));
@@ -700,6 +728,8 @@ function initCropper(onCropped) {
       photo: currentPhoto,
       stars: currentStars,
       text: postText.value.trim(),
+      postDate: dateInput.value || todayISO(),
+      placeName: placeInput.value.trim(),
       address: addressInput.value.trim(),
       visibility: currentVis,
       tags: currentTags,
@@ -825,6 +855,7 @@ function initSearchAndRequests() {
       await renderRequests();
       updateRequestBadges();
       await renderFeed();
+      await renderFriendsList();
     }
   });
 
@@ -837,6 +868,7 @@ function initSearchAndRequests() {
       await renderSearch(input.value);
       updateRequestBadges();
       await renderFeed();
+      await renderFriendsList();
     } else if (declineBtn) {
       await declineFriendRequest(declineBtn.dataset.uid);
       await renderRequests();
@@ -950,6 +982,36 @@ function initProfilePage() {
   });
 
   renderMyPosts();
+  renderFriendsList();
+}
+
+async function renderFriendsList() {
+  const friendsList = document.getElementById('friends-list');
+  const friendsCount = document.getElementById('friends-count');
+  if (!friendsList || !currentUser) return;
+
+  const friendUids = currentUser.friends || [];
+  friendsCount.textContent = friendUids.length ? `(${friendUids.length})` : '';
+
+  if (!friendUids.length) {
+    friendsList.innerHTML = '<p class="empty-hint">Du følger ingen venner enda. Bruk søk nederst for å finne folk.</p>';
+    return;
+  }
+
+  const friends = (await Promise.all(friendUids.map(async (uid) => {
+    const s = await getDoc(doc(db, 'users', uid));
+    return s.exists() ? { uid, ...s.data() } : null;
+  }))).filter(Boolean);
+
+  friendsList.innerHTML = friends.map((f) => `
+    <a class="friend-row" href="bruker.html?u=${encodeURIComponent(f.username)}">
+      <span class="friend-avatar">${f.avatar ? `<img src="${f.avatar}" alt="">` : escapeHTML(displayName(f).charAt(0).toUpperCase())}</span>
+      <span class="friend-info">
+        <strong>${escapeHTML(displayName(f))}</strong>
+        <span>@${escapeHTML(f.username)}</span>
+      </span>
+    </a>
+  `).join('');
 }
 
 /* ---------------- Viewed (friend) profile page (bruker.html) ---------------- */
@@ -1035,7 +1097,7 @@ async function initViewedProfilePage() {
     const snap = await getDocs(query(collection(db, 'posts'), where('authorUid', '==', target.uid)));
     let posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     posts = posts.filter((p) => p.visibility === 'offentlig' || isFriend);
-    posts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    posts.sort((a, b) => postSortKey(b) - postSortKey(a));
     postsEl.innerHTML = posts.length
       ? posts.map((p) => postToHTML(p, target.username)).join('')
       : '<p class="empty-hint">Ingen synlige anmeldelser.</p>';
