@@ -54,6 +54,9 @@
   <button class="btn btn-primary auth-submit" id="save-profile">Lagre profil</button>
   <button class="btn btn-outline auth-submit" id="logout-btn">Logg ut</button>
 
+  <h3 class="my-posts-title">Venner <span class="char-hint" id="friends-count"></span></h3>
+  <div id="friends-list" class="friends-list"></div>
+
   <h3 class="my-posts-title">Mine innlegg</h3>
   <div id="my-posts" class="feed-list"></div>
 </main>
@@ -146,12 +149,18 @@
         <button type="button" class="star-btn" data-star="5">★</button>
       </div>
 
+      <label class="field-label" for="post-date">Dato</label>
+      <input class="text-input" id="post-date" type="date">
+
       <label class="field-label" for="post-text">Tekst <span class="char-hint" id="char-count">0/100</span></label>
       <textarea class="text-input" id="post-text" maxlength="100" rows="3" placeholder="Hva syntes du om stedet?"></textarea>
 
+      <label class="field-label" for="post-place">Stedsnavn</label>
+      <input class="text-input" id="post-place" type="text" placeholder="F.eks. Kafe Solvang">
+
       <label class="field-label" for="post-address">Adresse (valgfritt)</label>
       <input class="text-input" id="post-address" type="text" placeholder="F.eks. Karl Johans gate 1, Oslo">
-      <p class="field-hint">Skriv en ekte adresse — da fungerer kartpinnen på innlegget.</p>
+      <p class="field-hint">Skriv en ekte adresse — da fungerer kartlenken under innlegget.</p>
 
       <label class="field-label">Merkelapper (valgfritt)</label>
       <div class="tag-picker" id="tag-picker">
