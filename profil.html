@@ -12,7 +12,7 @@
 <body class="app-body">
 
 <header class="app-topbar">
-  <a href="index.html" class="logo">
+  <a href="feed.html" class="logo">
     <span class="logo-mark">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 2c.6 5.4 1.2 8.4 10 10-8.8 1.6-9.4 4.6-10 10-.6-5.4-1.2-8.4-10-10 8.8-1.6 9.4-4.6 10-10Z" fill="var(--cream)"/>
@@ -25,40 +25,29 @@
 
 <main class="app-main">
   <div class="profile-header">
-    <label class="avatar-upload" for="avatar-input">
-      <img id="avatar-img" src="" alt="" hidden>
-      <span id="avatar-placeholder">+</span>
-      <input type="file" id="avatar-input" accept="image/*" hidden>
-    </label>
-    <h2 id="profile-username">@brukernavn</h2>
-    <p id="profile-name" class="profile-name"></p>
-  </div>
-
-  <label class="field-label" for="username-input">Brukernavn <span class="char-hint" id="username-hint"></span></label>
-  <input class="text-input" id="username-input" type="text">
-
-  <label class="field-label" for="bio-input">Bio <span class="char-hint" id="bio-count">0/100</span></label>
-  <textarea class="text-input" id="bio-input" maxlength="100" rows="3" placeholder="Skriv noe kort om deg selv..."></textarea>
-
-  <div class="setting-row">
-    <div>
-      <strong>Privat profil</strong>
-      <p>Nye følgere må godkjennes før de kan se anmeldelsene dine.</p>
+    <div class="avatar-upload avatar-static" id="viewed-avatar">
+      <img id="viewed-avatar-img" src="" alt="" hidden>
+      <span id="viewed-avatar-initial">?</span>
     </div>
-    <label class="switch">
-      <input type="checkbox" id="private-toggle">
-      <span class="slider"></span>
-    </label>
+    <h2 id="viewed-username">@brukernavn</h2>
+    <p id="viewed-name" class="profile-name"></p>
+    <p id="viewed-bio" class="viewed-bio"></p>
+    <button type="button" class="btn btn-outline auth-submit" id="viewed-friend-btn" style="max-width: 240px; margin: 16px auto 0;"></button>
   </div>
 
-  <button class="btn btn-primary auth-submit" id="save-profile">Lagre profil</button>
-  <button class="btn btn-outline auth-submit" id="logout-btn">Logg ut</button>
+  <div id="viewed-locked" class="empty-state" hidden>
+    <div class="empty-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+    </div>
+    <h2>Dette er en privat konto</h2>
+    <p>Send en venneforespørsel for å se anmeldelsene til denne brukeren.</p>
+  </div>
 
-  <h3 class="my-posts-title">Venner <span class="char-hint" id="friends-count"></span></h3>
-  <div id="friends-list" class="friends-list"></div>
-
-  <h3 class="my-posts-title">Mine innlegg</h3>
-  <div id="my-posts" class="feed-list"></div>
+  <h3 class="my-posts-title" id="viewed-posts-title" hidden>Anmeldelser</h3>
+  <div id="viewed-posts" class="feed-list"></div>
 </main>
 
 <nav class="bottom-nav">
@@ -87,7 +76,7 @@
     </svg>
   </button>
 
-  <a href="profil.html" class="bottom-nav-item active">
+  <a href="profil.html" class="bottom-nav-item">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="12" cy="8.5" r="3.3" stroke="currentColor" stroke-width="1.8"/>
       <path d="M5 20c0-3.6 3.13-6.5 7-6.5s7 2.9 7 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
