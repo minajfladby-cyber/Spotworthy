@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { getAnalytics, isSupported as isAnalyticsSupported } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-analytics.js";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -38,6 +39,8 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
+
+isAnalyticsSupported().then((ok) => { if (ok) getAnalytics(fbApp); }).catch(() => {});
 
 let currentUser = null;
 
@@ -83,6 +86,24 @@ function postSortKey(post) {
   return (post.createdAt?.seconds || 0) * 1000;
 }
 
+function resizeToSquare(dataUrl, size) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      const sx = (img.naturalWidth - side) / 2;
+      const sy = (img.naturalHeight - side) / 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, size, size);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 function errorMessageFor(err) {
   const code = err && err.code ? err.code : '';
   if (code.includes('email-already-in-use')) return 'Denne e-postadressen er allerede registrert.';
@@ -114,7 +135,10 @@ function postToHTML(post, authorUsername, options) {
     ? `<a href="bruker.html?u=${encodeURIComponent(authorUsername)}" class="feed-author-link">@${escapeHTML(authorUsername)}</a>`
     : '<span>@?</span>';
   const dateStr = formatDate(post.postDate || post.createdAt);
-  const addressLine = post.address
+  // Eldre innlegg (fra før stedsnavn/adresse ble skilt) hadde bare "address",
+  // brukt som overskrift. Faller tilbake til den for å unngå "Ukjent sted".
+  const heading = post.placeName || post.address || 'Ukjent sted';
+  const addressLine = (post.address && post.placeName)
     ? `<a class="post-address-line" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}" target="_blank" rel="noopener">${PIN_SVG}<span>${escapeHTML(post.address)}</span></a>`
     : '';
 
@@ -125,7 +149,7 @@ function postToHTML(post, authorUsername, options) {
         ${pin}
       </div>
       <div class="polaroid-caption">
-        <span class="place-name">${escapeHTML(post.placeName) || 'Ukjent sted'}</span>
+        <span class="place-name">${escapeHTML(heading)}</span>
         <span class="stars">${starString(post.stars)}</span>
       </div>
       ${addressLine}
@@ -323,6 +347,8 @@ document.querySelectorAll('.password-toggle').forEach((btn) => {
   toggle.addEventListener('click', open);
   closeBtn?.addEventListener('click', close);
   overlay?.addEventListener('click', close);
+  drawer.querySelectorAll('.drawer-link').forEach((link) => link.addEventListener('click', close));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
   const modalOverlay = document.getElementById('modal-overlay');
   const modalClose = document.getElementById('modal-close');
@@ -412,7 +438,7 @@ function updateDrawerLoginButton() {
       alert(errorMessageFor(err));
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Send bekreftelseskode';
+      submitBtn.textContent = 'Opprett konto';
     }
   });
 
@@ -933,8 +959,8 @@ function initProfilePage() {
     const file = avatarInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      avatarImg.src = reader.result;
+    reader.onload = async () => {
+      avatarImg.src = await resizeToSquare(reader.result, 400);
       avatarImg.hidden = false;
       avatarPlaceholder.hidden = true;
     };
