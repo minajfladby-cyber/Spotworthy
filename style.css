@@ -108,22 +108,21 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 1.25rem;
-  color: var(--black);
+  font-family: 'Bricolage Grotesque', var(--font-heading);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  color: #12201C;
 }
 
-.logo-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--pink-logo);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.logo-pin {
+  height: 1.35em;
+  width: auto;
   flex-shrink: 0;
 }
+
+.logo-word { display: inline-block; padding-bottom: 0.08em; }
 
 .back-link {
   font-weight: 500;
@@ -573,7 +572,7 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(180deg, var(--mint) 0%, var(--mint-mid) 100%);
 }
 
-.auth-logo { font-family: var(--font-heading); font-weight: 700; font-size: 1.3rem; color: var(--black); }
+.auth-logo { font-size: 1.7rem; }
 
 .auth-card {
   width: 100%;
