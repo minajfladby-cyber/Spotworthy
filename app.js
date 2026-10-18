@@ -1,5 +1,4 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-import { getAnalytics, isSupported as isAnalyticsSupported } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-analytics.js";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -40,7 +39,9 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
-isAnalyticsSupported().then((ok) => { if (ok) getAnalytics(fbApp); }).catch(() => {});
+import("https://www.gstatic.com/firebasejs/11.0.2/firebase-analytics.js")
+  .then(({ getAnalytics, isSupported }) => isSupported().then((ok) => { if (ok) getAnalytics(fbApp); }))
+  .catch(() => {});
 
 let currentUser = null;
 
