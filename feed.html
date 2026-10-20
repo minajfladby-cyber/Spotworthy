@@ -21,8 +21,22 @@
 </header>
 
 <main class="app-main">
+  <div class="friends-strip" id="friends-strip" aria-label="Vennene dine" hidden></div>
+
   <div class="feed-search">
-    <input type="text" id="feed-search-input" class="text-input" placeholder="Søk etter mat, sted eller drikke (f.eks. pizza, latte)">
+    <input type="search" id="feed-search-input" class="text-input" placeholder="Søk etter pizza, kaffe, et sted ..." autocomplete="off">
+  </div>
+
+  <div class="search-tools" id="search-tools" hidden>
+    <div class="chip-row" role="group" aria-label="Vis innlegg fra">
+      <button type="button" class="chip scope-chip active" data-value="alle">Alle</button>
+      <button type="button" class="chip scope-chip" data-value="venner">Venner</button>
+      <button type="button" class="chip scope-chip" data-value="offentlig">Andre</button>
+      <span class="chip-divider"></span>
+      <button type="button" class="chip sort-chip active" data-value="nyeste">Nyeste</button>
+      <button type="button" class="chip sort-chip" data-value="best">Best vurdert</button>
+    </div>
+    <p class="search-summary" id="search-summary"></p>
   </div>
 
   <div id="feed-empty" class="empty-state">
