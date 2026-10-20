@@ -49,6 +49,8 @@ const PIN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xml
   <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.15 7.15 11.73a1.25 1.25 0 0 0 1.7 0C13.5 21.15 20 15.25 20 10c0-4.42-3.58-8-8-8Z" fill="currentColor"/>
 </svg>`;
 
+const HEART_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.6-9.2-9.4C1.7 7.700 3.700 4.700 6.800 4.700c1.900 0 3.500 1 5.200 3 1.700-2 3.300-3 5.200-3 3.100 0 5.100 3 4 6.200-1.700 4.800-9.200 9.400-9.200 9.400Z" class="heart-path"/></svg>`;
+
 function starString(n) {
   return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
 }
@@ -143,6 +145,10 @@ function postToHTML(post, authorUsername, options) {
     ? `<a class="post-address-line" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}" target="_blank" rel="noopener">${PIN_SVG}<span>${escapeHTML(post.address)}</span></a>`
     : '';
 
+  const likes = Array.isArray(post.likes) ? post.likes : [];
+  const liked = !!currentUser && likes.includes(currentUser.uid);
+  const likeBtn = `<button type="button" class="like-btn${liked ? ' liked' : ''}" data-id="${post.id}" aria-pressed="${liked}" aria-label="Lik dette innlegget">${HEART_SVG}<span class="like-count">${likes.length || ''}</span></button>`;
+
   return `
     <article class="feed-card">
       <div class="polaroid-photo feed-photo photo-1">
@@ -158,7 +164,7 @@ function postToHTML(post, authorUsername, options) {
       ${tags}
       <div class="feed-meta">
         <span class="feed-meta-left">${authorLink}${dateStr ? `<span class="feed-date">${dateStr}</span>` : ''}</span>
-        <span class="vis-pill">${visLabel}</span>
+        <span class="feed-meta-right">${likeBtn}<span class="vis-pill">${visLabel}</span></span>
       </div>
       ${actions}
     </article>
@@ -219,6 +225,8 @@ async function acceptFriendRequest(requesterUid) {
   });
   currentUser.incomingRequests = (currentUser.incomingRequests || []).filter((u) => u !== requesterUid);
   currentUser.friends = [...(currentUser.friends || []), requesterUid];
+  friendsMapCache = null;
+  searchPoolCache = null;
 }
 
 async function declineFriendRequest(requesterUid) {
@@ -238,28 +246,128 @@ function updateRequestBadges() {
 }
 
 /* ---------------- Feed rendering ---------------- */
+let friendsMapCache = null;
+async function getFriendUsersMap() {
+  const key = (currentUser.friends || []).join(',');
+  if (friendsMapCache && friendsMapCache.key === key) return friendsMapCache.map;
+  const map = await buildFriendUsersMap();
+  friendsMapCache = { key, map };
+  return map;
+}
+
+let searchPoolCache = null;
+async function getSearchPool() {
+  if (searchPoolCache && Date.now() - searchPoolCache.time < 60000) return searchPoolCache;
+  const mineAndFriends = [currentUser.uid, ...(currentUser.friends || [])].slice(0, 30);
+  const [users, publicSnap, ownPosts] = await Promise.all([
+    fetchAllUsers(),
+    getDocs(query(collection(db, 'posts'), where('visibility', '==', 'offentlig'), limit(300))),
+    fetchPostsForUids(mineAndFriends),
+  ]);
+  const usersMap = {};
+  users.forEach((u) => { usersMap[u.uid] = u; });
+  usersMap[currentUser.uid] = currentUser;
+
+  const friendSet = new Set([currentUser.uid, ...(currentUser.friends || [])]);
+  const byId = {};
+  ownPosts.forEach((p) => { byId[p.id] = p; });
+  publicSnap.docs.forEach((d) => {
+    const p = { id: d.id, ...d.data() };
+    const author = usersMap[p.authorUid];
+    if (!author) return;
+    if (author.private && !friendSet.has(p.authorUid)) return;
+    byId[p.id] = p;
+  });
+  searchPoolCache = { time: Date.now(), posts: Object.values(byId), usersMap, friendSet };
+  return searchPoolCache;
+}
+
+const feedState = { scope: 'alle', sort: 'nyeste' };
+let feedRenderId = 0;
+
+function averageStars(posts) {
+  const rated = posts.filter((p) => p.stars > 0);
+  if (!rated.length) return null;
+  return rated.reduce((sum, p) => sum + p.stars, 0) / rated.length;
+}
+
+function renderFriendsStrip(friendsMap) {
+  const strip = document.getElementById('friends-strip');
+  if (!strip) return;
+  const friends = (currentUser.friends || []).map((uid) => friendsMap[uid]).filter(Boolean);
+  const items = friends.map((f) => `
+    <a class="strip-item" href="bruker.html?u=${encodeURIComponent(f.username)}">
+      <span class="strip-avatar">${f.avatar ? `<img src="${f.avatar}" alt="">` : escapeHTML(displayName(f).charAt(0).toUpperCase())}</span>
+      <span class="strip-name">${escapeHTML(f.firstName || f.username)}</span>
+    </a>`).join('');
+  strip.innerHTML = `
+    <button type="button" class="strip-item strip-add" id="strip-add">
+      <span class="strip-avatar">+</span>
+      <span class="strip-name">${friends.length ? 'Finn flere' : 'Finn venner'}</span>
+    </button>${items}`;
+  strip.hidden = false;
+}
+
 async function renderFeed() {
   const feedList = document.getElementById('feed-list');
   const feedEmpty = document.getElementById('feed-empty');
   if (!feedList || !currentUser) return;
+  const myRender = ++feedRenderId;
 
   const searchInput = document.getElementById('feed-search-input');
   const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  const words = q.split(/\s+/).map((w) => w.replace(/^#/, '')).filter(Boolean);
+  const searching = words.length > 0;
+  const tools = document.getElementById('search-tools');
+  const summary = document.getElementById('search-summary');
+  if (tools) tools.hidden = !searching;
 
-  const uids = [currentUser.uid, ...(currentUser.friends || [])].slice(0, 30);
-  const [usersMap, posts] = await Promise.all([buildFriendUsersMap(), fetchPostsForUids(uids)]);
+  let posts;
+  let usersMap;
+  let friendSet;
+  if (searching) {
+    const [pool, friendsMap] = await Promise.all([getSearchPool(), getFriendUsersMap()]);
+    if (myRender !== feedRenderId) return;
+    usersMap = pool.usersMap;
+    friendSet = pool.friendSet;
+    renderFriendsStrip(friendsMap);
+    posts = pool.posts.filter((p) => {
+      const hay = [p.placeName, p.address, p.text, ...(p.tags || [])].join(' ').toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+    if (feedState.scope === 'venner') posts = posts.filter((p) => friendSet.has(p.authorUid));
+    if (feedState.scope === 'offentlig') posts = posts.filter((p) => !friendSet.has(p.authorUid));
+    if (feedState.sort === 'best') {
+      posts.sort((a, b) => (b.stars - a.stars)
+        || ((b.likes || []).length - (a.likes || []).length)
+        || (postSortKey(b) - postSortKey(a)));
+    } else {
+      posts.sort((a, b) => postSortKey(b) - postSortKey(a));
+    }
+  } else {
+    const uids = [currentUser.uid, ...(currentUser.friends || [])].slice(0, 30);
+    const [friendsMap, ownAndFriends] = await Promise.all([getFriendUsersMap(), fetchPostsForUids(uids)]);
+    if (myRender !== feedRenderId) return;
+    usersMap = friendsMap;
+    posts = ownAndFriends;
+    renderFriendsStrip(friendsMap);
+  }
 
-  const filtered = q
-    ? posts.filter((p) => [p.text || '', p.address || '', ...(p.tags || [])].join(' ').toLowerCase().includes(q))
-    : posts;
+  if (summary) {
+    const avg = averageStars(posts);
+    summary.innerHTML = searching && posts.length
+      ? `<strong>${posts.length}</strong> treff for «${escapeHTML(q)}»`
+        + (avg ? ` <span class="summary-avg"><span class="stars">★</span> snitt ${avg.toFixed(1).replace('.', ',')} av 5</span>` : '')
+      : '';
+  }
 
-  if (filtered.length === 0) {
+  if (posts.length === 0) {
     feedEmpty.hidden = false;
     const title = document.getElementById('feed-empty-title');
     const text = document.getElementById('feed-empty-text');
-    if (q) {
+    if (searching) {
       if (title) title.textContent = 'Ingen treff';
-      if (text) text.textContent = `Fant ingen anmeldelser som matcher "${q}".`;
+      if (text) text.textContent = `Fant ingen anmeldelser som matcher «${q}». Prøv et annet ord, for eksempel pizza, kaffe eller et stedsnavn.`;
     } else {
       if (title) title.textContent = 'Ingen anmeldelser enda';
       if (text) text.textContent = 'Følg venner for å se hva de anbefaler, eller trykk på + nederst for å legge ut din egen første anmeldelse.';
@@ -268,7 +376,7 @@ async function renderFeed() {
     return;
   }
   feedEmpty.hidden = true;
-  feedList.innerHTML = filtered
+  feedList.innerHTML = posts
     .map((p) => postToHTML(p, usersMap[p.authorUid]?.username, { editable: p.authorUid === currentUser.uid }))
     .join('');
 }
@@ -282,7 +390,56 @@ async function renderMyPosts() {
     : '<p class="empty-hint">Du har ikke lagt ut noen anmeldelser enda.</p>';
 }
 
-document.getElementById('feed-search-input')?.addEventListener('input', renderFeed);
+(function initFeedSearch() {
+  const input = document.getElementById('feed-search-input');
+  if (!input) return;
+  let timer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(renderFeed, 250);
+  });
+
+  function bindChips(selector, key) {
+    document.querySelectorAll(selector).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        feedState[key] = btn.dataset.value;
+        document.querySelectorAll(selector).forEach((b) => b.classList.toggle('active', b === btn));
+        renderFeed();
+      });
+    });
+  }
+  bindChips('.scope-chip', 'scope');
+  bindChips('.sort-chip', 'sort');
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#strip-add')) document.getElementById('search-trigger')?.click();
+  });
+})();
+
+function setLikeUI(btn, liked, count) {
+  btn.classList.toggle('liked', liked);
+  btn.setAttribute('aria-pressed', String(liked));
+  btn.querySelector('.like-count').textContent = count > 0 ? String(count) : '';
+}
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.like-btn');
+  if (!btn || !currentUser || btn.dataset.busy) return;
+  btn.dataset.busy = '1';
+  const wasLiked = btn.classList.contains('liked');
+  const count = parseInt(btn.querySelector('.like-count').textContent || '0', 10) || 0;
+  setLikeUI(btn, !wasLiked, Math.max(0, count + (wasLiked ? -1 : 1)));
+  try {
+    await updateDoc(doc(db, 'posts', btn.dataset.id), {
+      likes: wasLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+    });
+    searchPoolCache = null;
+  } catch (err) {
+    setLikeUI(btn, wasLiked, count);
+  } finally {
+    delete btn.dataset.busy;
+  }
+});
 
 document.addEventListener('click', async (e) => {
   const delBtn = e.target.closest('.delete-post-btn');
@@ -1031,12 +1188,10 @@ async function renderFriendsList() {
   }))).filter(Boolean);
 
   friendsList.innerHTML = friends.map((f) => `
-    <a class="friend-row" href="bruker.html?u=${encodeURIComponent(f.username)}">
+    <a class="friend-card" href="bruker.html?u=${encodeURIComponent(f.username)}">
       <span class="friend-avatar">${f.avatar ? `<img src="${f.avatar}" alt="">` : escapeHTML(displayName(f).charAt(0).toUpperCase())}</span>
-      <span class="friend-info">
-        <strong>${escapeHTML(displayName(f))}</strong>
-        <span>@${escapeHTML(f.username)}</span>
-      </span>
+      <strong>${escapeHTML(displayName(f))}</strong>
+      <span class="friend-handle">@${escapeHTML(f.username)}</span>
     </a>
   `).join('');
 }
