@@ -1078,20 +1078,26 @@ a { color: inherit; text-decoration: none; }
 
 .my-posts-title { margin-top: 36px; margin-bottom: 16px; font-size: 1.1rem; }
 
-/* Friends list (profile page) */
-.friends-list { display: flex; flex-direction: column; gap: 8px; }
-.friend-row {
+/* Friends grid (profile page) */
+.friends-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+.friend-card {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 2px;
+  text-align: center;
   background: var(--white);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  padding: 18px 10px 14px;
   box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease;
 }
+.friend-card:hover { transform: translateY(-2px); }
+.friend-card strong { font-size: 0.92rem; margin-top: 8px; word-break: break-word; }
+.friend-handle { font-size: 0.8rem; color: rgba(23, 24, 28, 0.55); word-break: break-all; }
 .friend-avatar {
-  width: 38px;
-  height: 38px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: var(--mint-mid);
   color: var(--mint-deep);
@@ -1100,12 +1106,102 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   font-family: var(--font-heading);
   font-weight: 700;
+  font-size: 1.4rem;
   flex-shrink: 0;
   overflow: hidden;
+  box-shadow: 0 0 0 3px var(--white), 0 0 0 5px var(--pink-light);
 }
 .friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.friend-info { display: flex; flex-direction: column; }
-.friend-info span { font-size: 0.82rem; color: rgba(23, 24, 28, 0.55); }
+
+/* Friends strip (feed) */
+.friends-strip {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px 2px 14px;
+  margin-bottom: 8px;
+  scrollbar-width: none;
+}
+.friends-strip::-webkit-scrollbar { display: none; }
+.strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 66px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--black);
+  cursor: pointer;
+}
+.strip-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--mint-mid);
+  color: var(--mint-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.2rem;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--pink);
+}
+.strip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.strip-add .strip-avatar { background: var(--white); color: var(--pink); font-size: 1.6rem; box-shadow: 0 0 0 2px var(--pink-light); }
+.strip-name { font-size: 0.74rem; font-weight: 600; max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-item:hover .strip-avatar { transform: scale(1.05); }
+.strip-avatar { transition: transform 0.15s ease; }
+
+/* Search tools (feed) */
+.search-tools { margin: -8px 0 20px; }
+.chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chip {
+  border: 0;
+  background: var(--white);
+  color: rgba(23, 24, 28, 0.7);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+.chip.active { background: var(--pink); color: var(--white); }
+.chip-divider { width: 1px; height: 20px; background: rgba(23, 24, 28, 0.15); margin: 0 2px; }
+.search-summary { margin-top: 12px; font-size: 0.9rem; color: rgba(23, 24, 28, 0.7); }
+.search-summary:empty { display: none; }
+.summary-avg { margin-left: 6px; font-weight: 600; }
+.summary-avg .stars { font-size: 0.95rem; }
+
+/* Likes */
+.feed-meta-right { display: flex; align-items: center; gap: 10px; }
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(23, 24, 28, 0.5);
+  cursor: pointer;
+  border-radius: 999px;
+}
+.like-btn .heart-path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.like-btn:hover { color: var(--pink); }
+.like-btn.liked { color: var(--pink); }
+.like-btn.liked .heart-path { fill: var(--pink); stroke: var(--pink); }
+.like-btn.liked svg { animation: like-pop 0.25s ease; }
+@keyframes like-pop { 0% { transform: scale(0.7); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
 
 /* Responsive */
 @media (max-width: 900px) {
