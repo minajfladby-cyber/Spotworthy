@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function addedOnlyMe(f) {
+      return request.resource.data.get(f, []).toSet()
+        .difference(resource.data.get(f, []).toSet())
+        .hasOnly([request.auth.uid]);
+    }
+
+    function removedOnlyMe(f) {
+      return resource.data.get(f, []).toSet()
+        .difference(request.resource.data.get(f, []).toSet())
+        .hasOnly([request.auth.uid]);
+    }
+
+    function noneAdded(f) {
+      return request.resource.data.get(f, []).toSet()
+        .difference(resource.data.get(f, []).toSet()).size() == 0;
+    }
+
+    function noneRemoved(f) {
+      return resource.data.get(f, []).toSet()
+        .difference(request.resource.data.get(f, []).toSet()).size() == 0;
+    }
+
+    // En innlogget bruker som endrer en ANNEN brukers dokument (venneforespørsler):
+    // kan bare legge til/fjerne seg selv i forespørsels- og venneliste.
+    function friendRequestChange() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['incomingRequests', 'sentRequests', 'friends'])
+        && addedOnlyMe('incomingRequests') && removedOnlyMe('incomingRequests')
+        && noneAdded('sentRequests') && removedOnlyMe('sentRequests')
+        && addedOnlyMe('friends') && noneRemoved('friends')
+        && (!changed.hasAny(['friends'])
+            || resource.data.get('sentRequests', []).hasAny([request.auth.uid]));
+    }
+
+    // Alle innloggede kan like/fjerne like på andres innlegg,
+    // men bare endre "likes" og bare legge til/fjerne seg selv.
+    function likeChange() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['likes'])
+        && addedOnlyMe('likes') && removedOnlyMe('likes');
+    }
+
+    match /usernames/{name} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'email']);
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn()
+        && (request.auth.uid == uid || friendRequestChange());
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /posts/{postId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if signedIn()
+        && ((resource.data.authorUid == request.auth.uid
+             && request.resource.data.authorUid == request.auth.uid)
+            || likeChange());
+      allow delete: if signedIn() && resource.data.authorUid == request.auth.uid;
+    }
+  }
+}
