@@ -35,6 +35,28 @@ const firebaseConfig = {
   measurementId: "G-0ZHB4NB54P",
 };
 
+// Welcome email (sent through EmailJS). Paste the three values from your EmailJS
+// dashboard here. While any of them is empty, no welcome email is sent.
+const EMAILJS = {
+  serviceId: 'service_ayvrpmw',   // Email Services -> your Gmail service -> Service ID
+  templateId: 'template_096yk9p',  // Email Templates -> welcome template -> Template ID
+  publicKey: 'ZSd_g_HWmeuoblr4w',   // Account -> General -> Public Key
+};
+
+function sendWelcomeEmail(toEmail, firstName) {
+  if (!EMAILJS.serviceId || !EMAILJS.templateId || !EMAILJS.publicKey) return;
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      service_id: EMAILJS.serviceId,
+      template_id: EMAILJS.templateId,
+      user_id: EMAILJS.publicKey,
+      template_params: { to_email: toEmail, to_name: firstName || 'there' },
+    }),
+  }).catch(() => { /* a failed welcome email must never break sign-up */ });
+}
+
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 auth.languageCode = 'en';
@@ -667,6 +689,7 @@ function updateDrawerLoginButton() {
       });
 
       sendEmailVerification(cred.user).catch(() => {});
+      sendWelcomeEmail(email, firstName);
 
       document.getElementById('sent-email').textContent = email;
       document.getElementById('step-1').hidden = true;
