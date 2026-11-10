@@ -1476,3 +1476,27 @@ body:has(.drawer.open, .modal-overlay.open, .sheet-overlay.open, .crop-overlay.o
 @media (max-height: 520px) {
   .map-card { max-height: 70%; }
 }
+
+/* ---------------- Phone layout: centered hero, footer and polaroids ---------------- */
+@media (max-width: 720px) {
+  .hero-copy { text-align: center; }
+  .hero-copy h1, .hero-lead { margin-left: auto; margin-right: auto; text-wrap: balance; }
+  .hero-lead { text-wrap: pretty; }
+  .hero-spark { margin-bottom: 14px; }
+  .hero-note { text-align: center; }
+  .hero-note a { display: inline-block; margin-top: 2px; }
+
+  /* Keep the two polaroids as one group in the middle of the screen */
+  .hero-visual { min-height: 290px; display: flex; justify-content: center; }
+  .polaroid-stack { width: 290px; height: 290px; flex: none; }
+  .polaroid--back { left: 100px; top: 0; }
+  .polaroid--front { left: 0; top: 66px; }
+
+  .footer-inner { flex-direction: column; align-items: center; text-align: center; }
+  .footer-brand { display: flex; flex-direction: column; align-items: center; }
+  .footer-contact { align-items: center; }
+
+  .page-intro, .features .section-head { text-align: center; }
+  .feature-card, .step { text-align: center; }
+  .feature-card .feature-icon, .step .step-number { display: flex; margin-left: auto; margin-right: auto; }
+}
