@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="no">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#eafaf3" />
 <title>spotworthy — Worth a visit, wherever you are</title>
-<meta name="description" content="Følg venner og influencere, og oppdag de beste restaurantene og kafeene gjennom ekte anmeldelser." />
+<meta name="description" content="Follow friends and influencers, and discover the best restaurants and cafes through real reviews." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -20,7 +21,7 @@
       <svg class="logo-pin" viewBox="0 0 100 120" aria-hidden="true"><path d="M50 4 C26 4 8 22 8 46 C8 76 50 116 50 116 C50 116 92 76 92 46 C92 22 74 4 50 4 Z" fill="#FF3D8B"/><path stroke-linejoin="round" d="M50 21 L56.2 37.5 L73.8 38.3 L60 49.2 L64.7 66.2 L50 56.5 L35.3 66.2 L40 49.2 L26.2 38.3 L43.8 37.5 Z" fill="#fff"/></svg><span class="logo-word">spotworthy</span>
     </a>
 
-    <button class="menu-toggle" id="menu-toggle" aria-label="Åpne meny" aria-expanded="false">
+    <button class="menu-toggle" id="menu-toggle" aria-label="Open menu" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
   </div>
@@ -38,14 +39,14 @@
                 <path d="M4 8.5c1.6 1.4 3.2 1.4 4.8 0s3.2-1.4 4.8 0 3.2 1.4 4.8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                 <path d="M4 14c1.6 1.4 3.2 1.4 4.8 0s3.2-1.4 4.8 0 3.2 1.4 4.8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
               </svg>
-              <button class="pin-badge" title="Se på kart">
+              <button class="pin-badge" title="View on map">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.15 7.15 11.73a1.25 1.25 0 0 0 1.7 0C13.5 21.15 20 15.25 20 10c0-4.42-3.58-8-8-8Z" fill="currentColor"/>
                 </svg>
               </button>
             </div>
             <div class="polaroid-caption">
-              <span class="place-name">Kafe Solvang</span>
+              <span class="place-name">Cafe Solvang</span>
               <span class="stars">★★★★☆</span>
             </div>
           </article>
@@ -56,7 +57,7 @@
                 <path d="M6 10.5 12 5l6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M7.5 9.5V18a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <button class="pin-badge" title="Se på kart">
+              <button class="pin-badge" title="View on map">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.15 7.15 11.73a1.25 1.25 0 0 0 1.7 0C13.5 21.15 20 15.25 20 10c0-4.42-3.58-8-8-8Z" fill="currentColor"/>
                 </svg>
@@ -77,7 +78,22 @@
           </svg>
         </span>
         <h1>Worth a visit, wherever you are.</h1>
-        <a href="registrer.html" class="btn btn-primary btn-lg hero-btn">Registrer deg gratis</a>
+        <p class="hero-lead">Spotworthy is where you and your friends share honest reviews of cafes and restaurants, so you always find somewhere worth a visit.</p>
+        <a href="registrer.html" class="btn btn-primary btn-xl hero-btn">Join for free</a>
+        <p class="hero-note">Free. No credit card needed. <a href="logg-inn.html">Have an account? Log in</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECOMMENDATIONS (loaded from real public posts) -->
+  <section class="recs" id="landing-recs" hidden>
+    <div class="container">
+      <h2>Fresh from Spotworthy</h2>
+      <p class="recs-sub">Real recommendations from people using the app right now.</p>
+      <div class="recs-grid" id="landing-recs-grid"></div>
+      <div class="recs-cta">
+        <a href="registrer.html" class="btn btn-primary btn-xl">Join for free</a>
+        <p class="hero-note">See more recommendations, follow friends and share your own favorites.</p>
       </div>
     </div>
   </section>
@@ -92,13 +108,13 @@
       <p>Worth a visit, wherever you are.</p>
     </div>
     <div class="footer-contact">
-      <h3>Kontakt oss</h3>
+      <h3>Contact us</h3>
       <a href="mailto:Spotworthy@gmail.com">Spotworthy@gmail.com</a>
       <a href="https://instagram.com" target="_blank" rel="noopener">@spotworthy.app</a>
     </div>
   </div>
   <div class="container footer-bottom">
-    <p>© 2026 spotworthy. Alle rettigheter reservert.</p>
+    <p>© 2026 spotworthy. All rights reserved.</p>
   </div>
 </footer>
 
@@ -109,31 +125,31 @@
     <span class="logo">
       <svg class="logo-pin" viewBox="0 0 100 120" aria-hidden="true"><path d="M50 4 C26 4 8 22 8 46 C8 76 50 116 50 116 C50 116 92 76 92 46 C92 22 74 4 50 4 Z" fill="#FF3D8B"/><path stroke-linejoin="round" d="M50 21 L56.2 37.5 L73.8 38.3 L60 49.2 L64.7 66.2 L50 56.5 L35.3 66.2 L40 49.2 L26.2 38.3 L43.8 37.5 Z" fill="#fff"/></svg><span class="logo-word">spotworthy</span>
     </span>
-    <button class="drawer-close" id="drawer-close" aria-label="Lukk meny">
+    <button class="drawer-close" id="drawer-close" aria-label="Close menu">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </button>
   </div>
   <nav class="drawer-nav">
-    <button type="button" class="drawer-link" data-modal="about">Om spotworthy</button>
-    <a class="drawer-link" href="guide.html">Slik funker det (brukerguide)</a>
-    <a class="drawer-link" href="#kontakt">Kontaktinfo</a>
-    <button type="button" class="drawer-link" id="drawer-login">Logg inn</button>
-    <a class="drawer-link drawer-link--cta" href="registrer.html">Registrer deg</a>
+    <button type="button" class="drawer-link" data-modal="about">About spotworthy</button>
+    <a class="drawer-link" href="guide.html">How it works (user guide)</a>
+    <a class="drawer-link" href="#kontakt">Contact info</a>
+    <button type="button" class="drawer-link" id="drawer-login">Log in</button>
+    <a class="drawer-link drawer-link--cta" href="registrer.html">Sign up</a>
   </nav>
 </aside>
 
 <!-- ABOUT MODAL -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
-    <button class="modal-close" id="modal-close" aria-label="Lukk">
+    <button class="modal-close" id="modal-close" aria-label="Close">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </button>
-    <h3>Om spotworthy</h3>
-    <p>spotworthy er stedet der du finner ekte anbefalinger fra folk du faktisk stoler på — venner, familie og influencere du følger selv. Ingen betalte anmeldelser og ingen støy, bare ekte bilder, ærlige stjerner og stedene som faktisk er verdt et besøk.</p>
+    <h3>About spotworthy</h3>
+    <p>spotworthy is where you find real recommendations from people you actually trust: friends, family and the influencers you follow. No paid reviews and no noise, just real photos, honest stars and the places that are truly worth a visit.</p>
   </div>
 </div>
 
