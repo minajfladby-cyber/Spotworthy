@@ -37,6 +37,7 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
+auth.languageCode = 'en';
 const db = getFirestore(fbApp);
 
 import("https://www.gstatic.com/firebasejs/11.0.2/firebase-analytics.js")
@@ -72,7 +73,7 @@ function formatDate(value) {
     ? new Date(value + 'T00:00:00')
     : (value.seconds ? new Date(value.seconds * 1000) : null);
   if (!date || isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function todayISO() {
@@ -109,11 +110,11 @@ function resizeToSquare(dataUrl, size) {
 
 function errorMessageFor(err) {
   const code = err && err.code ? err.code : '';
-  if (code.includes('email-already-in-use')) return 'Denne e-postadressen er allerede registrert.';
-  if (code.includes('weak-password')) return 'Passordet er for svakt (minst 6 tegn).';
-  if (code.includes('invalid-email')) return 'Ugyldig e-postadresse.';
-  if (code.includes('network-request-failed')) return 'Nettverksfeil. Sjekk internettforbindelsen.';
-  return 'Noe gikk galt: ' + (err && err.message ? err.message : 'ukjent feil');
+  if (code.includes('email-already-in-use')) return 'This email address is already registered.';
+  if (code.includes('weak-password')) return 'Password is too weak (at least 6 characters).';
+  if (code.includes('invalid-email')) return 'Invalid email address.';
+  if (code.includes('network-request-failed')) return 'Network error. Check your internet connection.';
+  return 'Something went wrong: ' + (err && err.message ? err.message : 'unknown error');
 }
 
 function postToHTML(post, authorUsername, options) {
@@ -122,32 +123,32 @@ function postToHTML(post, authorUsername, options) {
     ? `<img class="post-photo-img" src="${post.photo}" alt="">`
     : `<div class="photo-icon-wrap"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 10.5 12 5l6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 9.5V18a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
   const pin = post.address
-    ? `<a class="pin-badge" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}" target="_blank" rel="noopener" title="Se ${escapeHTML(post.address)} på kart">${PIN_SVG}</a>`
+    ? `<a class="pin-badge" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}" target="_blank" rel="noopener" title="View ${escapeHTML(post.address)} on map">${PIN_SVG}</a>`
     : '';
-  const visLabel = post.visibility === 'venner' ? 'Kun venner' : 'Offentlig';
+  const visLabel = post.visibility === 'venner' ? 'Friends only' : 'Public';
   const tags = post.tags && post.tags.length
     ? `<div class="post-tags">${post.tags.map((t) => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}</div>`
     : '';
   const actions = editable
     ? `<div class="feed-actions">
-        <button type="button" class="btn btn-outline btn-sm edit-post-btn" data-id="${post.id}">Rediger</button>
-        <button type="button" class="btn btn-outline btn-sm delete-post-btn" data-id="${post.id}">Slett</button>
+        <button type="button" class="btn btn-outline btn-sm edit-post-btn" data-id="${post.id}">Edit</button>
+        <button type="button" class="btn btn-outline btn-sm delete-post-btn" data-id="${post.id}">Delete</button>
       </div>`
     : '';
   const authorLink = authorUsername
     ? `<a href="bruker.html?u=${encodeURIComponent(authorUsername)}" class="feed-author-link">@${escapeHTML(authorUsername)}</a>`
     : '<span>@?</span>';
   const dateStr = formatDate(post.postDate || post.createdAt);
-  // Eldre innlegg (fra før stedsnavn/adresse ble skilt) hadde bare "address",
-  // brukt som overskrift. Faller tilbake til den for å unngå "Ukjent sted".
-  const heading = post.placeName || post.address || 'Ukjent sted';
+  // Older posts (from before place name/address were split) only had "address",
+  // used as the heading. Fall back to it to avoid "Unknown place".
+  const heading = post.placeName || post.address || 'Unknown place';
   const addressLine = (post.address && post.placeName)
     ? `<a class="post-address-line" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}" target="_blank" rel="noopener">${PIN_SVG}<span>${escapeHTML(post.address)}</span></a>`
     : '';
 
   const likes = Array.isArray(post.likes) ? post.likes : [];
   const liked = !!currentUser && likes.includes(currentUser.uid);
-  const likeBtn = `<button type="button" class="like-btn${liked ? ' liked' : ''}" data-id="${post.id}" aria-pressed="${liked}" aria-label="Lik dette innlegget">${HEART_SVG}<span class="like-count">${likes.length || ''}</span></button>`;
+  const likeBtn = `<button type="button" class="like-btn${liked ? ' liked' : ''}" data-id="${post.id}" aria-pressed="${liked}" aria-label="Like this post">${HEART_SVG}<span class="like-count">${likes.length || ''}</span></button>`;
 
   return `
     <article class="feed-card">
@@ -169,6 +170,84 @@ function postToHTML(post, authorUsername, options) {
       ${actions}
     </article>
   `;
+}
+
+/* ---------------- Geocoding (address -> coordinates, via OpenStreetMap Nominatim) ---------------- */
+const GEO_CACHE_KEY = 'sw_geo_v1';
+const GEO_RETRY_MS = 7 * 24 * 3600 * 1000;
+let geoChain = Promise.resolve();
+let geoLastCall = 0;
+
+function geoKey(address) {
+  return String(address || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+function geoCacheRead() {
+  try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY)) || {}; } catch (e) { return {}; }
+}
+function geoCacheWrite(cache) {
+  try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache)); } catch (e) { /* storage unavailable */ }
+}
+
+// Nominatim allows 1 request per second, so every lookup goes through one queue.
+function nominatimLookup(q, timeoutMs) {
+  const run = async () => {
+    const wait = 1100 - (Date.now() - geoLastCall);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    geoLastCall = Date.now();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs || 8000);
+    try {
+      const res = await fetch(
+        'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=en&q=' + encodeURIComponent(q),
+        { signal: ctrl.signal }
+      );
+      if (!res.ok) throw new Error('geocoder ' + res.status);
+      const rows = await res.json();
+      if (!rows.length) return null;
+      const lat = parseFloat(rows[0].lat);
+      const lng = parseFloat(rows[0].lon);
+      return isFinite(lat) && isFinite(lng) ? { lat, lng } : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const result = geoChain.then(run, run);
+  geoChain = result.catch(() => {});
+  return result;
+}
+
+// Returns {lat, lng} or null (address not found / lookup failed). Never throws.
+async function geocodeAddress(address, placeName, timeoutMs) {
+  const key = geoKey(address);
+  if (!key) return null;
+  const cache = geoCacheRead();
+  const hit = cache[key];
+  if (hit && hit.lat != null) return { lat: hit.lat, lng: hit.lng };
+  if (hit && hit.miss && Date.now() - hit.miss < GEO_RETRY_MS) return null;
+
+  const queries = [address];
+  if (placeName) queries.push(`${placeName}, ${address}`);
+  // House number missing in OpenStreetMap? Fall back to the street itself.
+  const parts = address.split(',');
+  const street = parts[0].replace(/\s+\d+\s*[A-Za-z]?(?:\s*[-–/]\s*\d+\s*[A-Za-z]?)?\s*$/, '').trim();
+  if (street && street !== parts[0].trim()) queries.push([street, ...parts.slice(1)].join(','));
+  try {
+    for (const q of queries) {
+      const found = await nominatimLookup(q, timeoutMs);
+      if (found) {
+        const fresh = geoCacheRead();
+        fresh[key] = found;
+        geoCacheWrite(fresh);
+        return found;
+      }
+    }
+    const fresh = geoCacheRead();
+    fresh[key] = { miss: Date.now() };
+    geoCacheWrite(fresh);
+  } catch (e) {
+    // Network error or timeout: don't cache, so it is retried next time.
+  }
+  return null;
 }
 
 /* ---------------- Firestore helpers ---------------- */
@@ -303,7 +382,7 @@ function renderFriendsStrip(friendsMap) {
   strip.innerHTML = `
     <button type="button" class="strip-item strip-add" id="strip-add">
       <span class="strip-avatar">+</span>
-      <span class="strip-name">${friends.length ? 'Finn flere' : 'Finn venner'}</span>
+      <span class="strip-name">${friends.length ? 'Find more' : 'Find friends'}</span>
     </button>${items}`;
   strip.hidden = false;
 }
@@ -356,8 +435,8 @@ async function renderFeed() {
   if (summary) {
     const avg = averageStars(posts);
     summary.innerHTML = searching && posts.length
-      ? `<strong>${posts.length}</strong> treff for «${escapeHTML(q)}»`
-        + (avg ? ` <span class="summary-avg"><span class="stars">★</span> snitt ${avg.toFixed(1).replace('.', ',')} av 5</span>` : '')
+      ? `<strong>${posts.length}</strong> results for “${escapeHTML(q)}”`
+        + (avg ? ` <span class="summary-avg"><span class="stars">★</span> avg ${avg.toFixed(1)} of 5</span>` : '')
       : '';
   }
 
@@ -366,11 +445,11 @@ async function renderFeed() {
     const title = document.getElementById('feed-empty-title');
     const text = document.getElementById('feed-empty-text');
     if (searching) {
-      if (title) title.textContent = 'Ingen treff';
-      if (text) text.textContent = `Fant ingen anmeldelser som matcher «${q}». Prøv et annet ord, for eksempel pizza, kaffe eller et stedsnavn.`;
+      if (title) title.textContent = 'No results';
+      if (text) text.textContent = `No reviews match “${q}”. Try another word, for example pizza, coffee or a place name.`;
     } else {
-      if (title) title.textContent = 'Ingen anmeldelser enda';
-      if (text) text.textContent = 'Følg venner for å se hva de anbefaler, eller trykk på + nederst for å legge ut din egen første anmeldelse.';
+      if (title) title.textContent = 'No reviews yet';
+      if (text) text.textContent = 'Follow friends to see what they recommend, or tap + below to post your first review.';
     }
     feedList.innerHTML = '';
     return;
@@ -387,7 +466,7 @@ async function renderMyPosts() {
   const posts = await fetchPostsForUids([currentUser.uid]);
   myPosts.innerHTML = posts.length
     ? posts.map((p) => postToHTML(p, currentUser.username, { editable: true })).join('')
-    : '<p class="empty-hint">Du har ikke lagt ut noen anmeldelser enda.</p>';
+    : '<p class="empty-hint">You haven\'t posted any reviews yet.</p>';
 }
 
 (function initFeedSearch() {
@@ -444,7 +523,7 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('click', async (e) => {
   const delBtn = e.target.closest('.delete-post-btn');
   if (!delBtn || !currentUser) return;
-  if (!confirm('Slette denne anmeldelsen? Dette kan ikke angres.')) return;
+  if (!confirm('Delete this review? This cannot be undone.')) return;
   await deleteDoc(doc(db, 'posts', delBtn.dataset.id));
   await renderFeed();
   await renderMyPosts();
@@ -527,7 +606,7 @@ document.querySelectorAll('.password-toggle').forEach((btn) => {
 function updateDrawerLoginButton() {
   const loginBtn = document.getElementById('drawer-login');
   if (!loginBtn) return;
-  loginBtn.textContent = currentUser ? 'Gå til feed' : 'Logg inn';
+  loginBtn.textContent = currentUser ? 'Go to feed' : 'Log in';
 }
 
 /* ---------------- Registration flow (registrer.html) ---------------- */
@@ -545,7 +624,7 @@ function updateDrawerLoginButton() {
     if (!val) { usernameHint.textContent = ''; usernameHint.classList.remove('field-error'); return; }
     checkTimer = setTimeout(async () => {
       const taken = await isUsernameTaken(val);
-      usernameHint.textContent = taken ? 'Opptatt' : 'Ledig';
+      usernameHint.textContent = taken ? 'Taken' : 'Available';
       usernameHint.classList.toggle('field-error', taken);
     }, 350);
   });
@@ -568,11 +647,11 @@ function updateDrawerLoginButton() {
     mismatchError.hidden = true;
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Oppretter konto...';
+    submitBtn.textContent = 'Creating account...';
 
     try {
       if (await isUsernameTaken(username)) {
-        usernameHint.textContent = 'Dette brukernavnet er allerede tatt. Velg et annet.';
+        usernameHint.textContent = 'This username is already taken. Choose another.';
         usernameHint.classList.add('field-error');
         return;
       }
@@ -596,7 +675,7 @@ function updateDrawerLoginButton() {
       alert(errorMessageFor(err));
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Opprett konto';
+      submitBtn.textContent = 'Create account';
     }
   });
 
@@ -618,7 +697,7 @@ function updateDrawerLoginButton() {
     const errorEl = document.getElementById('login-error');
     errorEl.hidden = true;
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Logger inn...';
+    submitBtn.textContent = 'Logging in...';
 
     try {
       let email = idVal;
@@ -630,11 +709,11 @@ function updateDrawerLoginButton() {
       await signInWithEmailAndPassword(auth, email, password);
       window.location.href = 'feed.html';
     } catch (err) {
-      errorEl.textContent = 'Fant ingen konto med disse opplysningene, eller feil passord.';
+      errorEl.textContent = 'No account found with those details, or wrong password.';
       errorEl.hidden = false;
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Logg inn';
+      submitBtn.textContent = 'Log in';
     }
   });
 })();
@@ -770,6 +849,7 @@ function initCropper(onCropped) {
   let currentVis = 'offentlig';
   let currentTags = [];
   let editingPostId = null;
+  let editingPost = null;
 
   function renderCustomTags() {
     const customOnes = currentTags.filter((t) => !presetTagValues.includes(t));
@@ -804,8 +884,9 @@ function initCropper(onCropped) {
     currentVis = 'offentlig';
     currentTags = [];
     editingPostId = null;
-    sheetTitle.textContent = 'Nytt innlegg';
-    submitBtn.textContent = 'Publiser';
+    editingPost = null;
+    sheetTitle.textContent = 'New post';
+    submitBtn.textContent = 'Publish';
     photoPreviewImg.hidden = true;
     photoPreviewText.hidden = false;
     charCount.textContent = '0/100';
@@ -822,6 +903,7 @@ function initCropper(onCropped) {
     const post = { id: snap.id, ...snap.data() };
 
     editingPostId = postId;
+    editingPost = post;
     currentPhoto = post.photo || '';
     currentStars = post.stars;
     currentVis = post.visibility;
@@ -845,8 +927,8 @@ function initCropper(onCropped) {
     tagPicker.querySelectorAll('.tag-chip').forEach((b) => b.classList.toggle('active', currentTags.includes(b.dataset.tag)));
     renderCustomTags();
 
-    sheetTitle.textContent = 'Rediger innlegg';
-    submitBtn.textContent = 'Lagre endringer';
+    sheetTitle.textContent = 'Edit post';
+    submitBtn.textContent = 'Save changes';
     overlay.classList.add('open');
   }
 
@@ -904,7 +986,7 @@ function initCropper(onCropped) {
     e.preventDefault();
     if (!currentUser) return;
     if (currentStars === 0) {
-      alert('Velg en stjernevurdering før du publiserer.');
+      alert('Choose a star rating before publishing.');
       return;
     }
 
@@ -921,7 +1003,22 @@ function initCropper(onCropped) {
     };
 
     submitBtn.disabled = true;
+    const savedLabel = submitBtn.textContent;
     try {
+      // Pin the post on the map: reuse the old coordinates if the address didn't change.
+      if (!postData.address) {
+        postData.lat = null;
+        postData.lng = null;
+      } else if (editingPost && editingPost.address === postData.address && editingPost.lat != null) {
+        postData.lat = editingPost.lat;
+        postData.lng = editingPost.lng;
+      } else {
+        submitBtn.textContent = 'Locating place…';
+        const pos = await geocodeAddress(postData.address, postData.placeName, 6000);
+        postData.lat = pos ? pos.lat : null;
+        postData.lng = pos ? pos.lng : null;
+        submitBtn.textContent = savedLabel;
+      }
       if (editingPostId) {
         await updateDoc(doc(db, 'posts', editingPostId), postData);
       } else {
@@ -929,10 +1026,13 @@ function initCropper(onCropped) {
       }
       overlay.classList.remove('open');
       resetForm();
+      searchPoolCache = null;
       await renderFeed();
       await renderMyPosts();
+      refreshMapPage();
     } catch (err) {
-      alert('Klarte ikke å lagre innlegget: ' + err.message);
+      submitBtn.textContent = savedLabel;
+      alert('Could not save the post: ' + err.message);
     } finally {
       submitBtn.disabled = false;
     }
@@ -954,10 +1054,10 @@ function initSearchAndRequests() {
 
   function actionButtonHTML(uid) {
     const state = getFriendState(currentUser, uid);
-    if (state === 'friends') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Venner</button>`;
-    if (state === 'sent') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Forespørsel sendt</button>`;
-    if (state === 'incoming') return `<button type="button" class="btn btn-primary btn-sm friend-accept-btn" data-uid="${uid}">Godta</button>`;
-    return `<button type="button" class="btn btn-outline btn-sm friend-request-btn" data-uid="${uid}">Legg til</button>`;
+    if (state === 'friends') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Friends</button>`;
+    if (state === 'sent') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Request sent</button>`;
+    if (state === 'incoming') return `<button type="button" class="btn btn-primary btn-sm friend-accept-btn" data-uid="${uid}">Accept</button>`;
+    return `<button type="button" class="btn btn-outline btn-sm friend-request-btn" data-uid="${uid}">Add</button>`;
   }
 
   async function renderSearch(queryStr) {
@@ -978,7 +1078,7 @@ function initSearchAndRequests() {
           ${actionButtonHTML(f.uid)}
         </div>
       `).join('')
-      : '<p class="empty-hint">Ingen treff ennå. Etter hvert som flere oppretter konto på spotworthy, dukker de opp her.</p>';
+      : '<p class="empty-hint">No matches yet. As more people join spotworthy, they will show up here.</p>';
   }
 
   async function renderRequests() {
@@ -997,12 +1097,12 @@ function initSearchAndRequests() {
             <span>@${escapeHTML(f.username)}</span>
           </a>
           <div class="request-actions">
-            <button type="button" class="btn btn-primary btn-sm request-accept-btn" data-uid="${f.uid}">Godta</button>
-            <button type="button" class="btn btn-outline btn-sm request-decline-btn" data-uid="${f.uid}">Avslå</button>
+            <button type="button" class="btn btn-primary btn-sm request-accept-btn" data-uid="${f.uid}">Accept</button>
+            <button type="button" class="btn btn-outline btn-sm request-decline-btn" data-uid="${f.uid}">Decline</button>
           </div>
         </div>
       `).join('')
-      : '<p class="empty-hint">Ingen ventende forespørsler.</p>';
+      : '<p class="empty-hint">No pending requests.</p>';
   }
 
   function switchTab(tab) {
@@ -1104,7 +1204,7 @@ function initProfilePage() {
     }
     unameTimer = setTimeout(async () => {
       const taken = await isUsernameTaken(val);
-      usernameHint.textContent = taken ? 'Opptatt' : 'Ledig';
+      usernameHint.textContent = taken ? 'Taken' : 'Available';
       usernameHint.classList.toggle('field-error', taken);
     }, 350);
   });
@@ -1131,7 +1231,7 @@ function initProfilePage() {
     try {
       if (newUsername && newUsername !== currentUser.username) {
         if (await isUsernameTaken(newUsername)) {
-          usernameHint.textContent = 'Dette brukernavnet er opptatt.';
+          usernameHint.textContent = 'This username is taken.';
           usernameHint.classList.add('field-error');
           return;
         }
@@ -1151,10 +1251,10 @@ function initProfilePage() {
 
       refresh();
       await renderMyPosts();
-      saveBtn.textContent = 'Lagret!';
-      setTimeout(() => { saveBtn.textContent = 'Lagre profil'; }, 1500);
+      saveBtn.textContent = 'Saved!';
+      setTimeout(() => { saveBtn.textContent = 'Save profile'; }, 1500);
     } catch (err) {
-      alert('Klarte ikke å lagre: ' + err.message);
+      alert('Could not save: ' + err.message);
     } finally {
       saveBtn.disabled = false;
     }
@@ -1178,7 +1278,7 @@ async function renderFriendsList() {
   friendsCount.textContent = friendUids.length ? `(${friendUids.length})` : '';
 
   if (!friendUids.length) {
-    friendsList.innerHTML = '<p class="empty-hint">Du følger ingen venner enda. Bruk søk nederst for å finne folk.</p>';
+    friendsList.innerHTML = '<p class="empty-hint">You have no friends yet. Use search at the bottom to find people.</p>';
     return;
   }
 
@@ -1207,7 +1307,7 @@ async function initViewedProfilePage() {
 
   const unameSnap = await getDoc(doc(db, 'usernames', targetUsername));
   if (!unameSnap.exists()) {
-    usernameEl.textContent = 'Fant ikke brukeren';
+    usernameEl.textContent = 'User not found';
     if (friendBtn) friendBtn.hidden = true;
     return;
   }
@@ -1220,7 +1320,7 @@ async function initViewedProfilePage() {
 
   const targetSnap = await getDoc(doc(db, 'users', targetUid));
   if (!targetSnap.exists()) {
-    usernameEl.textContent = 'Fant ikke brukeren';
+    usernameEl.textContent = 'User not found';
     if (friendBtn) friendBtn.hidden = true;
     return;
   }
@@ -1250,18 +1350,18 @@ async function initViewedProfilePage() {
     friendBtn.classList.remove('btn-outline', 'btn-primary', 'btn-ghost');
     friendBtn.disabled = false;
     if (state === 'friends') {
-      friendBtn.textContent = 'Venner';
+      friendBtn.textContent = 'Friends';
       friendBtn.classList.add('btn-ghost');
       friendBtn.disabled = true;
     } else if (state === 'sent') {
-      friendBtn.textContent = 'Forespørsel sendt';
+      friendBtn.textContent = 'Request sent';
       friendBtn.classList.add('btn-ghost');
       friendBtn.disabled = true;
     } else if (state === 'incoming') {
-      friendBtn.textContent = 'Godta forespørsel';
+      friendBtn.textContent = 'Accept request';
       friendBtn.classList.add('btn-primary');
     } else {
-      friendBtn.textContent = 'Legg til venn';
+      friendBtn.textContent = 'Add friend';
       friendBtn.classList.add('btn-outline');
     }
   }
@@ -1282,7 +1382,7 @@ async function initViewedProfilePage() {
     posts.sort((a, b) => postSortKey(b) - postSortKey(a));
     postsEl.innerHTML = posts.length
       ? posts.map((p) => postToHTML(p, target.username)).join('')
-      : '<p class="empty-hint">Ingen synlige anmeldelser.</p>';
+      : '<p class="empty-hint">No visible reviews.</p>';
   }
 
   friendBtn.addEventListener('click', async () => {
@@ -1308,6 +1408,298 @@ function guardAppPages() {
   }
 }
 
+/* ---------------- Recommendations on the home page (index.html) ---------------- */
+async function initLandingRecs() {
+  const section = document.getElementById('landing-recs');
+  const grid = document.getElementById('landing-recs-grid');
+  if (!section || !grid) return;
+  try {
+    const snap = await getDocs(query(collection(db, 'posts'), where('visibility', '==', 'offentlig'), limit(12)));
+    const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .filter((p) => p.stars >= 4 && (p.placeName || p.address))
+      .sort((a, b) => (Number(!!b.photo) - Number(!!a.photo)) || (b.stars - a.stars) || (postSortKey(b) - postSortKey(a)))
+      .slice(0, 6);
+    if (!posts.length) return;
+    grid.innerHTML = posts.map((p) => recToHTML(p)).join('');
+    section.hidden = false;
+  } catch (err) {
+    // No access or network error: show the home page without recommendations.
+  }
+}
+
+function recToHTML(post) {
+  const photo = post.photo
+    ? `<img class="rec-photo-img" src="${post.photo}" alt="" loading="lazy">`
+    : `<div class="photo-icon-wrap"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 10.5 12 5l6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 9.5V18a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+  const heading = post.placeName || post.address;
+  const tags = post.tags && post.tags.length
+    ? `<div class="post-tags">${post.tags.slice(0, 4).map((t) => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}</div>`
+    : '';
+  const dateStr = formatDate(post.postDate || post.createdAt);
+  return `
+    <article class="feed-card rec-card">
+      <div class="polaroid-photo feed-photo photo-1">${photo}</div>
+      <div class="polaroid-caption">
+        <span class="place-name">${escapeHTML(heading)}</span>
+        <span class="stars">${starString(post.stars)}</span>
+      </div>
+      ${post.text ? `<p class="feed-text">${escapeHTML(post.text)}</p>` : ''}
+      ${tags}
+      ${dateStr ? `<div class="feed-meta"><span class="feed-date">${dateStr}</span></div>` : ''}
+    </article>
+  `;
+}
+
+initLandingRecs();
+
+/* ---------------- Map page (kart.html) ---------------- */
+const mapState = { scope: 'alle', top: false };
+let mapCtl = null;
+
+const MAP_PIN_SVG = `<svg viewBox="0 0 100 120" aria-hidden="true"><path d="M50 4 C26 4 8 22 8 46 C8 76 50 116 50 116 C50 116 92 76 92 46 C92 22 74 4 50 4 Z" fill="currentColor" stroke="#fff" stroke-width="6"/><path stroke-linejoin="round" d="M50 21 L56.2 37.5 L73.8 38.3 L60 49.2 L64.7 66.2 L50 56.5 L35.3 66.2 L40 49.2 L26.2 38.3 L43.8 37.5 Z" fill="#fff"/></svg>`;
+
+function mapPinIcon(count) {
+  return L.divIcon({
+    className: 'sw-pin-icon',
+    html: `<div class="sw-pin">${MAP_PIN_SVG}${count > 1 ? `<span class="sw-pin-count">${count}</span>` : ''}</div>`,
+    iconSize: [40, 48],
+    iconAnchor: [20, 46],
+  });
+}
+
+function validCoord(p) {
+  return typeof p.lat === 'number' && typeof p.lng === 'number' && isFinite(p.lat) && isFinite(p.lng);
+}
+
+function mapCardHTML(group) {
+  const posts = [...group.posts].sort((a, b) => postSortKey(b) - postSortKey(a));
+  const named = posts.find((p) => p.placeName) || posts[0];
+  const heading = named.placeName || named.address;
+  const avg = averageStars(posts);
+  const gmaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(named.address)}`;
+  const rows = posts.map((p) => {
+    const author = group.usersMap[p.authorUid];
+    const who = author
+      ? `<a href="bruker.html?u=${encodeURIComponent(author.username)}" class="feed-author-link">@${escapeHTML(author.username)}</a>`
+      : '<span>@?</span>';
+    const thumb = p.photo
+      ? `<img src="${p.photo}" alt="" loading="lazy">`
+      : `<span class="map-thumb-empty">${PIN_SVG}</span>`;
+    const date = formatDate(p.postDate || p.createdAt);
+    const vis = p.visibility === 'venner' ? '<span class="vis-pill">Friends only</span>' : '';
+    return `
+      <div class="map-review">
+        <div class="map-thumb">${thumb}</div>
+        <div class="map-review-body">
+          <div class="map-review-top"><span class="stars">${starString(p.stars)}</span>${vis}</div>
+          ${p.text ? `<p class="map-review-text">${escapeHTML(p.text)}</p>` : ''}
+          <div class="map-review-meta">${who}${date ? `<span class="feed-date">${date}</span>` : ''}</div>
+        </div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="map-card-head">
+      <div class="map-card-title">
+        <h3>${escapeHTML(heading)}</h3>
+        <div class="map-card-sub"><span class="stars">${starString(Math.round(avg || 0))}</span><span>${avg ? avg.toFixed(1) : '–'} · ${posts.length} ${posts.length === 1 ? 'review' : 'reviews'}</span></div>
+        <a class="post-address-line" href="${gmaps}" target="_blank" rel="noopener">${PIN_SVG}<span>${escapeHTML(named.address)}</span></a>
+      </div>
+      <button type="button" class="modal-close" id="map-card-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="map-reviews">${rows}</div>`;
+}
+
+async function initMapPage() {
+  const el = document.getElementById('map');
+  if (!el || !currentUser || mapCtl) return;
+  const status = document.getElementById('map-status');
+  const empty = document.getElementById('map-empty');
+  const card = document.getElementById('map-card');
+
+  if (typeof L === 'undefined') {
+    status.textContent = 'The map could not load. Check your internet connection and reload.';
+    status.hidden = false;
+    return;
+  }
+
+  const map = L.map(el, { zoomControl: false, worldCopyJump: true }).setView([59.91, 10.75], 11);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+  }).addTo(map);
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  // "Find me" button
+  const Locate = L.Control.extend({
+    onAdd() {
+      const btn = L.DomUtil.create('button', 'map-locate');
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Show my location');
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.on(btn, 'click', () => map.locate({ setView: true, maxZoom: 15 }));
+      return btn;
+    },
+  });
+  new Locate({ position: 'topright' }).addTo(map);
+
+  let meDot = null;
+  let statusTimer = null;
+  function flash(msg, ms) {
+    status.textContent = msg;
+    status.hidden = false;
+    clearTimeout(statusTimer);
+    if (ms) statusTimer = setTimeout(() => { status.hidden = true; }, ms);
+  }
+  map.on('locationfound', (e) => {
+    if (meDot) meDot.remove();
+    meDot = L.circleMarker(e.latlng, { radius: 8, color: '#fff', weight: 3, fillColor: '#2fb989', fillOpacity: 1 }).addTo(map);
+  });
+  map.on('locationerror', () => flash('Couldn’t get your location. Check your browser’s location permission.', 4000));
+
+  const layer = L.layerGroup().addTo(map);
+  let touched = false;
+  el.addEventListener('pointerdown', () => { touched = true; });
+
+  function closeCard() {
+    card.hidden = true;
+    el.querySelectorAll('.sw-pin.selected').forEach((n) => n.classList.remove('selected'));
+  }
+  map.on('click', closeCard);
+  card.addEventListener('click', (e) => { if (e.target.closest('#map-card-close')) closeCard(); });
+
+  let pool = null;
+  let located = [];   // posts that have coordinates
+  let missing = [];   // posts with an address but no coordinates yet
+  let noAddress = 0;
+  let runId = 0;
+
+  function applyCoords(post, pos) {
+    post.lat = pos.lat;
+    post.lng = pos.lng;
+  }
+
+  function draw(fit) {
+    layer.clearLayers();
+    closeCard();
+    const friendSet = pool.friendSet;
+    let list = located;
+    if (mapState.scope === 'venner') list = list.filter((p) => friendSet.has(p.authorUid));
+    if (mapState.scope === 'offentlig') list = list.filter((p) => !friendSet.has(p.authorUid));
+    if (mapState.top) list = list.filter((p) => p.stars >= 4);
+
+    const groups = {};
+    list.forEach((p) => {
+      const key = `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`;
+      (groups[key] = groups[key] || { lat: p.lat, lng: p.lng, posts: [], usersMap: pool.usersMap }).posts.push(p);
+    });
+    const all = Object.values(groups);
+    all.forEach((g) => {
+      const marker = L.marker([g.lat, g.lng], { icon: mapPinIcon(g.posts.length), keyboard: true, title: (g.posts.find((p) => p.placeName) || g.posts[0]).placeName || '' });
+      marker.on('click', (e) => {
+        if (e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+        closeCard();
+        card.innerHTML = mapCardHTML(g);
+        card.scrollTop = 0;
+        card.hidden = false;
+        const node = marker.getElement()?.querySelector('.sw-pin');
+        if (node) node.classList.add('selected');
+        // Move the pin into the free space above the card so it isn't hidden behind it.
+        const pt = map.latLngToContainerPoint([g.lat, g.lng]);
+        const freeH = el.clientHeight - card.offsetHeight - 12;
+        const wantY = Math.max(90, freeH / 2 + 24);
+        map.panBy([pt.x - el.clientWidth / 2, pt.y - wantY], { animate: true });
+      });
+      marker.addTo(layer);
+    });
+
+    if (!all.length && located.length) flash('No pins match this filter.', 2500);
+    const nothingYet = located.length === 0 && missing.length === 0;
+    empty.hidden = !(nothingYet && !all.length);
+    if (fit && all.length) {
+      const bounds = L.latLngBounds(all.map((g) => [g.lat, g.lng]));
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15, animate: false });
+    }
+    return all.length;
+  }
+
+  async function load() {
+    const myRun = ++runId;
+    flash('Loading reviews…');
+    pool = await getSearchPool();
+    if (myRun !== runId) return;
+    const cache = geoCacheRead();
+    located = [];
+    missing = [];
+    noAddress = 0;
+    pool.posts.forEach((p) => {
+      if (validCoord(p)) { located.push(p); return; }
+      if (!p.address) { noAddress += 1; return; }
+      const hit = cache[geoKey(p.address)];
+      if (hit && hit.lat != null) { applyCoords(p, hit); located.push(p); return; }
+      if (hit && hit.miss && Date.now() - hit.miss < GEO_RETRY_MS) return; // address not found
+      missing.push(p);
+    });
+    touched = false;
+    draw(true);
+    status.hidden = true;
+
+    // Older posts have no coordinates yet: look them up one by one, pins appear as they are found.
+    const byAddress = {};
+    missing.forEach((p) => { (byAddress[geoKey(p.address)] = byAddress[geoKey(p.address)] || []).push(p); });
+    const addresses = Object.keys(byAddress);
+    let left = addresses.length;
+    for (const key of addresses) {
+      if (myRun !== runId) return;
+      flash(`Placing ${left} ${left === 1 ? 'spot' : 'spots'} on the map…`);
+      const first = byAddress[key][0];
+      const pos = await geocodeAddress(first.address, first.placeName);
+      left -= 1;
+      if (myRun !== runId) return;
+      if (pos) {
+        byAddress[key].forEach((p) => {
+          applyCoords(p, pos);
+          located.push(p);
+          // Save the coordinates on your own posts so they are only looked up once.
+          if (p.authorUid === currentUser.uid) {
+            updateDoc(doc(db, 'posts', p.id), { lat: pos.lat, lng: pos.lng }).catch(() => {});
+          }
+        });
+        draw(!touched);
+      }
+    }
+    status.hidden = true;
+  }
+
+  // Filters
+  document.querySelectorAll('.map-scope').forEach((b) => b.addEventListener('click', () => {
+    mapState.scope = b.dataset.value;
+    document.querySelectorAll('.map-scope').forEach((x) => x.classList.toggle('active', x === b));
+    if (pool) draw(true);
+  }));
+  const topBtn = document.getElementById('map-top');
+  topBtn?.addEventListener('click', () => {
+    mapState.top = !mapState.top;
+    topBtn.classList.toggle('active', mapState.top);
+    topBtn.setAttribute('aria-pressed', String(mapState.top));
+    if (pool) draw(true);
+  });
+
+  mapCtl = { map, reload: load };
+  try {
+    await load();
+  } catch (err) {
+    flash('Could not load reviews: ' + (err && err.message ? err.message : 'unknown error'));
+  }
+}
+
+// Called after a post is saved so the map picks up the new pin.
+function refreshMapPage() {
+  if (mapCtl) mapCtl.reload().catch(() => {});
+}
+
 /* ---------------- Auth state entry point ---------------- */
 onAuthStateChanged(auth, async (fbUser) => {
   if (fbUser) {
@@ -1323,4 +1715,5 @@ onAuthStateChanged(auth, async (fbUser) => {
   initProfilePage();
   await initViewedProfilePage();
   await renderFeed();
+  await initMapPage();
 });
