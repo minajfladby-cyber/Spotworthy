@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#eafaf3" />
+<title>Map — spotworthy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="app-body map-body">
+
+<header class="app-topbar">
+  <a href="index.html" class="logo">
+    <svg class="logo-pin" viewBox="0 0 100 120" aria-hidden="true"><path d="M50 4 C26 4 8 22 8 46 C8 76 50 116 50 116 C50 116 92 76 92 46 C92 22 74 4 50 4 Z" fill="#FF3D8B"/><path stroke-linejoin="round" d="M50 21 L56.2 37.5 L73.8 38.3 L60 49.2 L64.7 66.2 L50 56.5 L35.3 66.2 L40 49.2 L26.2 38.3 L43.8 37.5 Z" fill="#fff"/></svg><span class="logo-word">spotworthy</span>
+  </a>
+  <span class="app-topbar-title">Map</span>
+</header>
+
+<main class="map-main">
+  <div id="map" class="map" aria-label="Map of reviews"></div>
+
+  <div class="map-filters" role="group" aria-label="Filter pins">
+    <button type="button" class="chip map-scope active" data-value="alle">All</button>
+    <button type="button" class="chip map-scope" data-value="venner">Friends</button>
+    <button type="button" class="chip map-scope" data-value="offentlig">Others</button>
+    <span class="chip-divider"></span>
+    <button type="button" class="chip" id="map-top" aria-pressed="false">4★ +</button>
+  </div>
+
+  <div class="map-status" id="map-status" role="status" hidden></div>
+
+  <div class="map-empty" id="map-empty" hidden>
+    <div class="empty-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <circle cx="12" cy="10" r="2.3" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+    </div>
+    <h2>No pins yet</h2>
+    <p>Reviews with an address show up here. Tap + and add an address to your next review.</p>
+  </div>
+
+  <section class="map-card" id="map-card" aria-live="polite" hidden></section>
+</main>
+
+<nav class="bottom-nav">
+  <a href="feed.html" class="bottom-nav-item">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 11.5 12 4l8 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Feed</span>
+  </a>
+
+  <a href="kart.html" class="bottom-nav-item active">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <circle cx="12" cy="10" r="2.3" stroke="currentColor" stroke-width="1.8"/>
+    </svg>
+    <span>Map</span>
+  </a>
+
+  <button type="button" class="bottom-nav-fab" id="create-post-trigger" aria-label="New post">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <button type="button" class="bottom-nav-item" id="search-trigger">
+    <span class="nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+        <path d="m20 20-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span class="nav-badge" hidden></span>
+    </span>
+    <span>Search</span>
+  </button>
+
+  <a href="profil.html" class="bottom-nav-item">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="8.5" r="3.3" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M5 20c0-3.6 3.13-6.5 7-6.5s7 2.9 7 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <span>Profile</span>
+  </a>
+</nav>
+
+<!-- SEARCH SHEET -->
+<div class="sheet-overlay" id="search-overlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3>Friends</h3>
+      <button class="modal-close" id="search-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="tab-bar">
+      <button type="button" class="tab-btn active" data-tab="search">Search</button>
+      <button type="button" class="tab-btn" data-tab="requests">Requests <span class="tab-badge" id="requests-badge" hidden>0</span></button>
+    </div>
+    <div class="tab-panel" data-panel="search">
+      <input type="text" id="search-input" class="text-input" autocapitalize="none" autocorrect="off" enterkeyhint="search" placeholder="Search by name or username">
+      <div id="search-results" class="search-results"></div>
+    </div>
+    <div class="tab-panel" data-panel="requests" hidden>
+      <div id="requests-list" class="search-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE POST SHEET -->
+<div class="sheet-overlay" id="create-overlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3>New post</h3>
+      <button class="modal-close" id="create-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <form id="create-form">
+      <label class="field-label">Photo</label>
+      <label class="photo-upload" for="post-photo">
+        <input type="file" id="post-photo" accept="image/*" hidden>
+        <span id="photo-preview-text">Tap to add a photo from the place</span>
+        <img id="photo-preview-img" hidden alt="">
+      </label>
+
+      <label class="field-label">Rating</label>
+      <div class="star-picker" id="star-picker">
+        <button type="button" class="star-btn" data-star="1">★</button>
+        <button type="button" class="star-btn" data-star="2">★</button>
+        <button type="button" class="star-btn" data-star="3">★</button>
+        <button type="button" class="star-btn" data-star="4">★</button>
+        <button type="button" class="star-btn" data-star="5">★</button>
+      </div>
+
+      <label class="field-label" for="post-date">Date</label>
+      <input class="text-input" id="post-date" type="date">
+
+      <label class="field-label" for="post-text">Text <span class="char-hint" id="char-count">0/100</span></label>
+      <textarea class="text-input" id="post-text" maxlength="100" rows="3" placeholder="What did you think of the place?"></textarea>
+
+      <label class="field-label" for="post-place">Place name</label>
+      <input class="text-input" id="post-place" type="text" placeholder="E.g. Cafe Solvang">
+
+      <label class="field-label" for="post-address">Address (optional)</label>
+      <input class="text-input" id="post-address" type="text" placeholder="E.g. Karl Johans gate 1, Oslo">
+      <p class="field-hint">Enter a real address so the map link on the post works.</p>
+
+      <label class="field-label">Tags (optional)</label>
+      <div class="tag-picker" id="tag-picker">
+        <button type="button" class="tag-chip" data-tag="coffee">Coffee</button>
+        <button type="button" class="tag-chip" data-tag="cappuccino">Cappuccino</button>
+        <button type="button" class="tag-chip" data-tag="latte">Caffe latte</button>
+        <button type="button" class="tag-chip" data-tag="pizza">Pizza</button>
+        <button type="button" class="tag-chip" data-tag="burger">Burger</button>
+        <button type="button" class="tag-chip" data-tag="sushi">Sushi</button>
+        <button type="button" class="tag-chip" data-tag="milkshake">Milkshake</button>
+        <button type="button" class="tag-chip" data-tag="brunch">Brunch</button>
+        <button type="button" class="tag-chip" data-tag="dessert">Dessert</button>
+        <button type="button" class="tag-chip" data-tag="salad">Salad</button>
+      </div>
+      <div class="custom-tag-row">
+        <input type="text" id="custom-tag-input" class="text-input" placeholder="Add your own tag (e.g. taco)">
+        <button type="button" class="btn btn-outline btn-sm" id="add-custom-tag">Add</button>
+      </div>
+      <div class="custom-tags" id="custom-tags-list"></div>
+
+      <label class="field-label">Visibility</label>
+      <div class="visibility-toggle" id="visibility-toggle">
+        <button type="button" class="vis-btn active" data-vis="offentlig">Public</button>
+        <button type="button" class="vis-btn" data-vis="venner">Friends only</button>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg auth-submit">Publish</button>
+    </form>
+  </div>
+</div>
+
+<!-- IMAGE CROP -->
+<div class="crop-overlay" id="crop-overlay">
+  <div class="crop-box">
+    <h3>Adjust your photo</h3>
+    <div class="crop-viewport" id="crop-viewport">
+      <img id="crop-image" alt="">
+    </div>
+    <input type="range" id="crop-zoom" class="crop-zoom" min="1" max="3" step="0.01" value="1">
+    <div class="crop-actions">
+      <button type="button" class="btn btn-outline" id="crop-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="crop-confirm">Use photo</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO LIGHTBOX -->
+<div class="lightbox-overlay" id="lightbox-overlay">
+  <button class="lightbox-close" id="lightbox-close" aria-label="Close">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <img id="lightbox-image" src="" alt="">
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
