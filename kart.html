@@ -27,7 +27,7 @@
 
   <div class="map-filters" role="group" aria-label="Filter pins">
     <button type="button" class="chip map-scope active" data-value="alle">All</button>
-    <button type="button" class="chip map-scope" data-value="venner">Friends</button>
+    <button type="button" class="chip map-scope" data-value="venner">Following</button>
     <button type="button" class="chip map-scope" data-value="offentlig">Others</button>
     <span class="chip-divider"></span>
     <button type="button" class="chip" id="map-top" aria-pressed="false">4★ +</button>
@@ -96,7 +96,7 @@
 <div class="sheet-overlay" id="search-overlay">
   <div class="sheet">
     <div class="sheet-head">
-      <h3>Friends</h3>
+      <h3>Find people</h3>
       <button class="modal-close" id="search-close" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -108,7 +108,7 @@
       <button type="button" class="tab-btn" data-tab="requests">Requests <span class="tab-badge" id="requests-badge" hidden>0</span></button>
     </div>
     <div class="tab-panel" data-panel="search">
-      <input type="text" id="search-input" class="text-input" autocapitalize="none" autocorrect="off" enterkeyhint="search" placeholder="Search by name or username">
+      <input type="text" id="search-input" class="text-input" autocapitalize="none" autocorrect="off" enterkeyhint="search" placeholder="Search people or #tags">
       <div id="search-results" class="search-results"></div>
     </div>
     <div class="tab-panel" data-panel="requests" hidden>

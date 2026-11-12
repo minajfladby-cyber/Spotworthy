@@ -30,6 +30,11 @@
     <h2 id="viewed-username">@username</h2>
     <p id="viewed-name" class="profile-name"></p>
     <p id="viewed-bio" class="viewed-bio"></p>
+    <div class="follow-stats">
+      <div class="stat"><strong id="viewed-posts-count">0</strong><span>Posts</span></div>
+      <button type="button" class="stat stat-btn" id="viewed-followers-btn"><strong id="viewed-followers-count">0</strong><span>Followers</span></button>
+      <button type="button" class="stat stat-btn" id="viewed-following-btn"><strong id="viewed-following-count">0</strong><span>Following</span></button>
+    </div>
     <button type="button" class="btn btn-outline auth-submit" id="viewed-friend-btn" style="max-width: 240px; margin: 16px auto 0;"></button>
   </div>
 
@@ -41,7 +46,7 @@
       </svg>
     </div>
     <h2>This account is private</h2>
-    <p>Send a friend request to see this user's reviews.</p>
+    <p>Follow this account to see their reviews. They need to approve your request first.</p>
   </div>
 
   <h3 class="my-posts-title" id="viewed-posts-title" hidden>Reviews</h3>
@@ -91,11 +96,26 @@
   </a>
 </nav>
 
+<!-- FOLLOWING / FOLLOWERS SHEET -->
+<div class="sheet-overlay" id="people-overlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3 id="people-title">Following</h3>
+      <button class="modal-close" id="people-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div id="people-list" class="search-results"></div>
+  </div>
+</div>
+
 <!-- SEARCH SHEET -->
 <div class="sheet-overlay" id="search-overlay">
   <div class="sheet">
     <div class="sheet-head">
-      <h3>Friends</h3>
+      <h3>Find people</h3>
       <button class="modal-close" id="search-close" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -107,7 +127,7 @@
       <button type="button" class="tab-btn" data-tab="requests">Requests <span class="tab-badge" id="requests-badge" hidden>0</span></button>
     </div>
     <div class="tab-panel" data-panel="search">
-      <input type="text" id="search-input" class="text-input" autocapitalize="none" autocorrect="off" enterkeyhint="search" placeholder="Search by name or username">
+      <input type="text" id="search-input" class="text-input" autocapitalize="none" autocorrect="off" enterkeyhint="search" placeholder="Search people or #tags">
       <div id="search-results" class="search-results"></div>
     </div>
     <div class="tab-panel" data-panel="requests" hidden>

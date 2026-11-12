@@ -74,8 +74,20 @@ const PIN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xml
 
 const HEART_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.6-9.2-9.4C1.7 7.700 3.700 4.700 6.800 4.700c1.900 0 3.500 1 5.200 3 1.700-2 3.300-3 5.200-3 3.100 0 5.100 3 4 6.200-1.700 4.800-9.200 9.400-9.200 9.400Z" class="heart-path"/></svg>`;
 
+// Renders a rating in steps of 0.5 as five stars. Each star is filled 0%, 50% or 100%.
 function starString(n) {
-  return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
+  const r = Math.max(0, Math.min(5, Number(n) || 0));
+  let out = '';
+  for (let i = 0; i < 5; i++) {
+    const f = Math.max(0, Math.min(1, r - i));
+    out += `<i style="--f:${Math.round(f * 100)}%">★</i>`;
+  }
+  return `<span class="star-row" role="img" aria-label="${r} out of 5">${out}</span>`;
+}
+
+function formatStars(n) {
+  const r = Number(n) || 0;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
 
 function escapeHTML(str) {
@@ -300,34 +312,57 @@ async function buildFriendUsersMap() {
   return map;
 }
 
-/* ---------------- Friend state + requests ---------------- */
+/* ---------------- Following / followers ----------------
+   `friends` on a user document = the people that user follows (approved).
+   Followers are found by asking who has you in their `friends` list.
+   Public accounts are followed instantly; private accounts get a request. */
 function getFriendState(user, uid) {
   if (!user) return 'none';
-  if ((user.friends || []).includes(uid)) return 'friends';
+  if ((user.friends || []).includes(uid)) return 'following';
   if ((user.sentRequests || []).includes(uid)) return 'sent';
   if ((user.incomingRequests || []).includes(uid)) return 'incoming';
   return 'none';
 }
 
-async function sendFriendRequest(targetUid) {
-  await updateDoc(doc(db, 'users', currentUser.uid), { sentRequests: arrayUnion(targetUid) });
-  await updateDoc(doc(db, 'users', targetUid), { incomingRequests: arrayUnion(currentUser.uid) });
-  currentUser.sentRequests = [...(currentUser.sentRequests || []), targetUid];
+function clearSocialCaches() {
+  friendsMapCache = null;
+  searchPoolCache = null;
+  followersCache = null;
 }
 
+async function followUser(target) {
+  if (target.private) {
+    await updateDoc(doc(db, 'users', currentUser.uid), { sentRequests: arrayUnion(target.uid) });
+    await updateDoc(doc(db, 'users', target.uid), { incomingRequests: arrayUnion(currentUser.uid) });
+    currentUser.sentRequests = [...new Set([...(currentUser.sentRequests || []), target.uid])];
+  } else {
+    await updateDoc(doc(db, 'users', currentUser.uid), { friends: arrayUnion(target.uid) });
+    currentUser.friends = [...new Set([...(currentUser.friends || []), target.uid])];
+  }
+  clearSocialCaches();
+}
+
+async function unfollowUser(uid) {
+  await updateDoc(doc(db, 'users', currentUser.uid), { friends: arrayRemove(uid) });
+  currentUser.friends = (currentUser.friends || []).filter((u) => u !== uid);
+  clearSocialCaches();
+}
+
+async function cancelFollowRequest(uid) {
+  await updateDoc(doc(db, 'users', currentUser.uid), { sentRequests: arrayRemove(uid) });
+  await updateDoc(doc(db, 'users', uid), { incomingRequests: arrayRemove(currentUser.uid) });
+  currentUser.sentRequests = (currentUser.sentRequests || []).filter((u) => u !== uid);
+}
+
+// Approving a request lets the requester follow you. You do not follow them back automatically.
 async function acceptFriendRequest(requesterUid) {
-  await updateDoc(doc(db, 'users', currentUser.uid), {
-    incomingRequests: arrayRemove(requesterUid),
-    friends: arrayUnion(requesterUid),
-  });
+  await updateDoc(doc(db, 'users', currentUser.uid), { incomingRequests: arrayRemove(requesterUid) });
   await updateDoc(doc(db, 'users', requesterUid), {
     friends: arrayUnion(currentUser.uid),
     sentRequests: arrayRemove(currentUser.uid),
   });
   currentUser.incomingRequests = (currentUser.incomingRequests || []).filter((u) => u !== requesterUid);
-  currentUser.friends = [...(currentUser.friends || []), requesterUid];
-  friendsMapCache = null;
-  searchPoolCache = null;
+  clearSocialCaches();
 }
 
 async function declineFriendRequest(requesterUid) {
@@ -335,6 +370,122 @@ async function declineFriendRequest(requesterUid) {
   await updateDoc(doc(db, 'users', requesterUid), { sentRequests: arrayRemove(currentUser.uid) });
   currentUser.incomingRequests = (currentUser.incomingRequests || []).filter((u) => u !== requesterUid);
 }
+
+let followersCache = null;
+async function fetchFollowers(uid) {
+  const snap = await getDocs(query(collection(db, 'users'), where('friends', 'array-contains', uid)));
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+}
+
+async function fetchUsersByIds(uids) {
+  const users = await Promise.all((uids || []).map(async (uid) => {
+    const s = await getDoc(doc(db, 'users', uid));
+    return s.exists() ? { uid, ...s.data() } : null;
+  }));
+  return users.filter(Boolean);
+}
+
+// "Friends only" posts are visible to the people the author follows.
+function canSeePost(post, usersMap) {
+  if (post.authorUid === currentUser.uid) return true;
+  if (post.visibility !== 'venner') return true;
+  const author = usersMap[post.authorUid];
+  return !!author && (author.friends || []).includes(currentUser.uid);
+}
+
+function avatarHTML(u, cls) {
+  return `<span class="${cls}">${u.avatar ? `<img src="${u.avatar}" alt="">` : escapeHTML(displayName(u).charAt(0).toUpperCase())}</span>`;
+}
+
+/* Sheet that lists the people you follow / who follow you. */
+const peopleSheet = (() => {
+  let overlay = null;
+  let listEl = null;
+  let titleEl = null;
+  let loader = null;
+  let onChange = null;
+  let users = [];
+
+  function rowHTML(u) {
+    const state = getFriendState(currentUser, u.uid);
+    let btn = '';
+    if (u.uid !== currentUser.uid) {
+      if (state === 'following') btn = `<button type="button" class="btn btn-outline btn-sm people-act" data-act="unfollow" data-uid="${u.uid}">Following</button>`;
+      else if (state === 'sent') btn = `<button type="button" class="btn btn-ghost btn-sm people-act" data-act="cancel" data-uid="${u.uid}">Requested</button>`;
+      else if (state === 'incoming') btn = `<button type="button" class="btn btn-primary btn-sm people-act" data-act="accept" data-uid="${u.uid}">Accept</button>`;
+      else btn = `<button type="button" class="btn btn-primary btn-sm people-act" data-act="follow" data-uid="${u.uid}">Follow</button>`;
+    }
+    return `
+      <div class="search-row">
+        <a class="search-row-info people-row-info" href="bruker.html?u=${encodeURIComponent(u.username)}">
+          ${avatarHTML(u, 'people-avatar')}
+          <span class="people-names"><strong>${escapeHTML(displayName(u))}</strong><span>@${escapeHTML(u.username)}</span></span>
+        </a>
+        ${btn}
+      </div>`;
+  }
+
+  function render(emptyText) {
+    listEl.innerHTML = users.length
+      ? users.map(rowHTML).join('')
+      : `<p class="empty-hint">${emptyText}</p>`;
+  }
+
+  async function reload(emptyText) {
+    listEl.innerHTML = '<p class="empty-hint">Loading…</p>';
+    try {
+      users = await loader();
+    } catch (err) {
+      users = [];
+    }
+    users.sort((a, b) => displayName(a).localeCompare(displayName(b)));
+    render(emptyText);
+  }
+
+  function init() {
+    if (overlay) return true;
+    overlay = document.getElementById('people-overlay');
+    if (!overlay) return false;
+    listEl = document.getElementById('people-list');
+    titleEl = document.getElementById('people-title');
+    const close = () => overlay.classList.remove('open');
+    document.getElementById('people-close')?.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    listEl.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.people-act');
+      if (!btn || btn.disabled) return;
+      const uid = btn.dataset.uid;
+      const person = users.find((u) => u.uid === uid);
+      if (!person) return;
+      btn.disabled = true;
+      try {
+        if (btn.dataset.act === 'follow') await followUser(person);
+        else if (btn.dataset.act === 'unfollow') {
+          if (!confirm(`Unfollow @${person.username}?`)) { btn.disabled = false; return; }
+          await unfollowUser(uid);
+        } else if (btn.dataset.act === 'cancel') await cancelFollowRequest(uid);
+        else if (btn.dataset.act === 'accept') await acceptFriendRequest(uid);
+      } catch (err) {
+        alert('Something went wrong: ' + (err && err.message ? err.message : 'unknown error'));
+      }
+      await reload(overlay.dataset.empty);
+      if (onChange) onChange();
+    });
+    return true;
+  }
+
+  return {
+    async open(title, loadFn, emptyText, changeFn) {
+      if (!init()) return;
+      loader = loadFn;
+      onChange = changeFn;
+      titleEl.textContent = title;
+      overlay.dataset.empty = emptyText;
+      overlay.classList.add('open');
+      await reload(emptyText);
+    },
+  };
+})();
 
 function updateRequestBadges() {
   const count = currentUser?.incomingRequests?.length || 0;
@@ -371,7 +522,7 @@ async function getSearchPool() {
 
   const friendSet = new Set([currentUser.uid, ...(currentUser.friends || [])]);
   const byId = {};
-  ownPosts.forEach((p) => { byId[p.id] = p; });
+  ownPosts.forEach((p) => { if (canSeePost(p, usersMap)) byId[p.id] = p; });
   publicSnap.docs.forEach((d) => {
     const p = { id: d.id, ...d.data() };
     const author = usersMap[p.authorUid];
@@ -392,23 +543,6 @@ function averageStars(posts) {
   return rated.reduce((sum, p) => sum + p.stars, 0) / rated.length;
 }
 
-function renderFriendsStrip(friendsMap) {
-  const strip = document.getElementById('friends-strip');
-  if (!strip) return;
-  const friends = (currentUser.friends || []).map((uid) => friendsMap[uid]).filter(Boolean);
-  const items = friends.map((f) => `
-    <a class="strip-item" href="bruker.html?u=${encodeURIComponent(f.username)}">
-      <span class="strip-avatar">${f.avatar ? `<img src="${f.avatar}" alt="">` : escapeHTML(displayName(f).charAt(0).toUpperCase())}</span>
-      <span class="strip-name">${escapeHTML(f.firstName || f.username)}</span>
-    </a>`).join('');
-  strip.innerHTML = `
-    <button type="button" class="strip-item strip-add" id="strip-add">
-      <span class="strip-avatar">+</span>
-      <span class="strip-name">${friends.length ? 'Find more' : 'Find friends'}</span>
-    </button>${items}`;
-  strip.hidden = false;
-}
-
 async function renderFeed() {
   const feedList = document.getElementById('feed-list');
   const feedEmpty = document.getElementById('feed-empty');
@@ -427,11 +561,10 @@ async function renderFeed() {
   let usersMap;
   let friendSet;
   if (searching) {
-    const [pool, friendsMap] = await Promise.all([getSearchPool(), getFriendUsersMap()]);
+    const pool = await getSearchPool();
     if (myRender !== feedRenderId) return;
     usersMap = pool.usersMap;
     friendSet = pool.friendSet;
-    renderFriendsStrip(friendsMap);
     posts = pool.posts.filter((p) => {
       const hay = [p.placeName, p.address, p.text, ...(p.tags || [])].join(' ').toLowerCase();
       return words.every((w) => hay.includes(w));
@@ -450,8 +583,7 @@ async function renderFeed() {
     const [friendsMap, ownAndFriends] = await Promise.all([getFriendUsersMap(), fetchPostsForUids(uids)]);
     if (myRender !== feedRenderId) return;
     usersMap = friendsMap;
-    posts = ownAndFriends;
-    renderFriendsStrip(friendsMap);
+    posts = ownAndFriends.filter((p) => canSeePost(p, usersMap));
   }
 
   if (summary) {
@@ -489,6 +621,8 @@ async function renderMyPosts() {
   myPosts.innerHTML = posts.length
     ? posts.map((p) => postToHTML(p, currentUser.username, { editable: true })).join('')
     : '<p class="empty-hint">You haven\'t posted any reviews yet.</p>';
+  const countEl = document.getElementById('posts-count');
+  if (countEl) countEl.textContent = String(posts.length);
 }
 
 (function initFeedSearch() {
@@ -511,10 +645,6 @@ async function renderMyPosts() {
   }
   bindChips('.scope-chip', 'scope');
   bindChips('.sort-chip', 'sort');
-
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#strip-add')) document.getElementById('search-trigger')?.click();
-  });
 })();
 
 function setLikeUI(btn, liked, count) {
@@ -536,6 +666,7 @@ document.addEventListener('click', async (e) => {
     });
     searchPoolCache = null;
   } catch (err) {
+    console.warn('Could not save like:', err && err.code ? err.code : err);
     setLikeUI(btn, wasLiked, count);
   } finally {
     delete btn.dataset.busy;
@@ -869,6 +1000,25 @@ function initCropper(onCropped) {
 
   let currentPhoto = '';
   let currentStars = 0;
+
+  // Half-star rating, like Letterboxd: tap the left half of a star for x.5, the right half for a full star.
+  const starValueEl = document.createElement('span');
+  starValueEl.className = 'star-value';
+  starPicker.append(starValueEl);
+  const starHint = document.createElement('p');
+  starHint.className = 'field-hint';
+  starHint.textContent = 'Tap the left half of a star for a half rating.';
+  starPicker.after(starHint);
+
+  function paintStars() {
+    starPicker.querySelectorAll('.star-btn').forEach((b) => {
+      const n = Number(b.dataset.star);
+      const f = Math.max(0, Math.min(1, currentStars - (n - 1)));
+      b.style.setProperty('--f', `${Math.round(f * 100)}%`);
+      b.classList.toggle('active', f > 0);
+    });
+    starValueEl.textContent = currentStars ? `${formatStars(currentStars)} / 5` : '';
+  }
   let currentVis = 'offentlig';
   let currentTags = [];
   let editingPostId = null;
@@ -914,7 +1064,7 @@ function initCropper(onCropped) {
     photoPreviewText.hidden = false;
     charCount.textContent = '0/100';
     dateInput.value = todayISO();
-    [...starPicker.children].forEach((b) => b.classList.remove('active'));
+    paintStars();
     [...visToggle.children].forEach((b) => b.classList.toggle('active', b.dataset.vis === 'offentlig'));
     tagPicker.querySelectorAll('.tag-chip').forEach((b) => b.classList.remove('active'));
     renderCustomTags();
@@ -945,7 +1095,7 @@ function initCropper(onCropped) {
     dateInput.value = post.postDate || todayISO();
     placeInput.value = post.placeName || '';
     addressInput.value = post.address || '';
-    [...starPicker.children].forEach((b) => b.classList.toggle('active', Number(b.dataset.star) <= currentStars));
+    paintStars();
     [...visToggle.children].forEach((b) => b.classList.toggle('active', b.dataset.vis === currentVis));
     tagPicker.querySelectorAll('.tag-chip').forEach((b) => b.classList.toggle('active', currentTags.includes(b.dataset.tag)));
     renderCustomTags();
@@ -977,10 +1127,11 @@ function initCropper(onCropped) {
   starPicker.addEventListener('click', (e) => {
     const btn = e.target.closest('.star-btn');
     if (!btn) return;
-    currentStars = Number(btn.dataset.star);
-    [...starPicker.children].forEach((b) => {
-      b.classList.toggle('active', Number(b.dataset.star) <= currentStars);
-    });
+    const n = Number(btn.dataset.star);
+    const rect = btn.getBoundingClientRect();
+    const leftHalf = (e.clientX - rect.left) < rect.width / 2;
+    currentStars = leftHalf ? n - 0.5 : n;
+    paintStars();
   });
 
   postText.addEventListener('input', () => {
@@ -1075,33 +1226,69 @@ function initSearchAndRequests() {
   const tabBtns = document.querySelectorAll('#search-overlay .tab-btn');
   const panels = document.querySelectorAll('#search-overlay .tab-panel');
 
-  function actionButtonHTML(uid) {
-    const state = getFriendState(currentUser, uid);
-    if (state === 'friends') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Friends</button>`;
-    if (state === 'sent') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Request sent</button>`;
-    if (state === 'incoming') return `<button type="button" class="btn btn-primary btn-sm friend-accept-btn" data-uid="${uid}">Accept</button>`;
-    return `<button type="button" class="btn btn-outline btn-sm friend-request-btn" data-uid="${uid}">Add</button>`;
+  function actionButtonHTML(u) {
+    const state = getFriendState(currentUser, u.uid);
+    if (state === 'following') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Following</button>`;
+    if (state === 'sent') return `<button type="button" class="btn btn-ghost btn-sm" disabled>Requested</button>`;
+    if (state === 'incoming') return `<button type="button" class="btn btn-primary btn-sm friend-accept-btn" data-uid="${u.uid}">Accept</button>`;
+    return `<button type="button" class="btn btn-primary btn-sm friend-request-btn" data-uid="${u.uid}" data-private="${u.private ? '1' : '0'}">Follow</button>`;
   }
 
+  let searchRun = 0;
   async function renderSearch(queryStr) {
-    const q = queryStr.trim().toLowerCase();
-    const all = await fetchAllUsers();
-    const pool = all.filter((u) => u.uid !== currentUser.uid);
-    const matches = q
-      ? pool.filter((f) => displayName(f).toLowerCase().includes(q) || f.username.toLowerCase().includes(q))
-      : pool;
+    const myRun = ++searchRun;
+    const raw = queryStr.trim().toLowerCase();
+    const q = raw.replace(/^#/, '');
+    const [all, pool] = await Promise.all([fetchAllUsers(), getSearchPool()]);
+    if (myRun !== searchRun) return;
 
-    results.innerHTML = matches.length
-      ? matches.map((f) => `
+    // People (not when the search starts with #)
+    const others = all.filter((u) => u.uid !== currentUser.uid);
+    const people = raw.startsWith('#')
+      ? []
+      : (q ? others.filter((f) => displayName(f).toLowerCase().includes(q) || f.username.toLowerCase().includes(q)) : others);
+
+    // Tags used on posts you are allowed to see
+    const counts = {};
+    pool.posts.forEach((p) => (p.tags || []).forEach((t) => { counts[t] = (counts[t] || 0) + 1; }));
+    const tags = Object.keys(counts)
+      .filter((t) => !q || t.includes(q))
+      .sort((a, b) => (counts[b] - counts[a]) || a.localeCompare(b))
+      .slice(0, 14);
+
+    // All posts with a matching tag
+    const tagPosts = q
+      ? pool.posts
+        .filter((p) => (p.tags || []).some((t) => t.includes(q)))
+        .sort((a, b) => (Number((b.tags || []).includes(q)) - Number((a.tags || []).includes(q))) || (postSortKey(b) - postSortKey(a)))
+        .slice(0, 40)
+      : [];
+
+    let html = '';
+    if (people.length) {
+      html += (q ? '<h4 class="search-section">People</h4>' : '') + people.map((f) => `
         <div class="search-row">
-          <a class="search-row-info" href="bruker.html?u=${encodeURIComponent(f.username)}">
-            <strong>${escapeHTML(displayName(f))}</strong>
-            <span>@${escapeHTML(f.username)}</span>
+          <a class="search-row-info people-row-info" href="bruker.html?u=${encodeURIComponent(f.username)}">
+            ${avatarHTML(f, 'people-avatar')}
+            <span class="people-names"><strong>${escapeHTML(displayName(f))}</strong><span>@${escapeHTML(f.username)}</span></span>
           </a>
-          ${actionButtonHTML(f.uid)}
-        </div>
-      `).join('')
-      : '<p class="empty-hint">No matches yet. As more people join spotworthy, they will show up here.</p>';
+          ${actionButtonHTML(f)}
+        </div>`).join('');
+    }
+    if (tags.length) {
+      html += `<h4 class="search-section">${q ? 'Tags' : 'Popular tags'}</h4>
+        <div class="tag-results">${tags.map((t) => `<button type="button" class="tag-result" data-tag="${escapeHTML(t)}">#${escapeHTML(t)} <span>${counts[t]}</span></button>`).join('')}</div>`;
+    }
+    if (tagPosts.length) {
+      html += `<h4 class="search-section">Reviews tagged #${escapeHTML(q)} <span class="char-hint">${tagPosts.length}</span></h4>
+        <div class="feed-list search-posts">${tagPosts.map((p) => postToHTML(p, pool.usersMap[p.authorUid]?.username)).join('')}</div>`;
+    }
+    if (!html) {
+      html = q
+        ? `<p class="empty-hint">No people or tags match “${escapeHTML(q)}”.</p>`
+        : '<p class="empty-hint">No one here yet. As more people join spotworthy, they will show up here.</p>';
+    }
+    results.innerHTML = html;
   }
 
   async function renderRequests() {
@@ -1151,11 +1338,23 @@ function initSearchAndRequests() {
   input.addEventListener('input', () => renderSearch(input.value));
 
   results.addEventListener('click', async (e) => {
+    const tagBtn = e.target.closest('.tag-result');
     const addBtn = e.target.closest('.friend-request-btn');
     const acceptBtn = e.target.closest('.friend-accept-btn');
-    if (addBtn) {
-      await sendFriendRequest(addBtn.dataset.uid);
+    if (tagBtn) {
+      input.value = '#' + tagBtn.dataset.tag;
+      results.scrollTop = 0;
       await renderSearch(input.value);
+    } else if (addBtn) {
+      addBtn.disabled = true;
+      try {
+        await followUser({ uid: addBtn.dataset.uid, private: addBtn.dataset.private === '1' });
+      } catch (err) {
+        alert('Could not follow: ' + (err && err.message ? err.message : 'unknown error'));
+      }
+      await renderSearch(input.value);
+      await renderFeed();
+      await renderFriendsList();
     } else if (acceptBtn) {
       await acceptFriendRequest(acceptBtn.dataset.uid);
       await renderSearch(input.value);
@@ -1288,35 +1487,41 @@ function initProfilePage() {
     window.location.href = 'index.html';
   });
 
+  initFollowStats();
   renderMyPosts();
   renderFriendsList();
 }
 
+// Updates the Following / Followers counts on your own profile.
 async function renderFriendsList() {
-  const friendsList = document.getElementById('friends-list');
-  const friendsCount = document.getElementById('friends-count');
-  if (!friendsList || !currentUser) return;
-
-  const friendUids = currentUser.friends || [];
-  friendsCount.textContent = friendUids.length ? `(${friendUids.length})` : '';
-
-  if (!friendUids.length) {
-    friendsList.innerHTML = '<p class="empty-hint">You have no friends yet. Use search at the bottom to find people.</p>';
-    return;
+  const followingEl = document.getElementById('following-count');
+  const followersEl = document.getElementById('followers-count');
+  if (!followingEl || !currentUser) return;
+  followingEl.textContent = String((currentUser.friends || []).length);
+  try {
+    followersCache = await fetchFollowers(currentUser.uid);
+    followersEl.textContent = String(followersCache.length);
+  } catch (err) {
+    followersEl.textContent = '–';
   }
+}
 
-  const friends = (await Promise.all(friendUids.map(async (uid) => {
-    const s = await getDoc(doc(db, 'users', uid));
-    return s.exists() ? { uid, ...s.data() } : null;
-  }))).filter(Boolean);
-
-  friendsList.innerHTML = friends.map((f) => `
-    <a class="friend-card" href="bruker.html?u=${encodeURIComponent(f.username)}">
-      <span class="friend-avatar">${f.avatar ? `<img src="${f.avatar}" alt="">` : escapeHTML(displayName(f).charAt(0).toUpperCase())}</span>
-      <strong>${escapeHTML(displayName(f))}</strong>
-      <span class="friend-handle">@${escapeHTML(f.username)}</span>
-    </a>
-  `).join('');
+function initFollowStats() {
+  const followingBtn = document.getElementById('following-btn');
+  const followersBtn = document.getElementById('followers-btn');
+  if (!followingBtn || !followersBtn || !currentUser) return;
+  followingBtn.addEventListener('click', () => peopleSheet.open(
+    'Following',
+    () => fetchUsersByIds(currentUser.friends || []),
+    'You are not following anyone yet. Use search at the bottom to find people.',
+    () => { renderFriendsList(); renderFeed(); }
+  ));
+  followersBtn.addEventListener('click', () => peopleSheet.open(
+    'Followers',
+    () => fetchFollowers(currentUser.uid),
+    'No followers yet. Share your profile and post a few reviews!',
+    () => { renderFriendsList(); renderFeed(); }
+  ));
 }
 
 /* ---------------- Viewed (friend) profile page (bruker.html) ---------------- */
@@ -1372,37 +1577,56 @@ async function initViewedProfilePage() {
     const state = getFriendState(currentUser, target.uid);
     friendBtn.classList.remove('btn-outline', 'btn-primary', 'btn-ghost');
     friendBtn.disabled = false;
-    if (state === 'friends') {
-      friendBtn.textContent = 'Friends';
-      friendBtn.classList.add('btn-ghost');
-      friendBtn.disabled = true;
+    if (state === 'following') {
+      friendBtn.textContent = 'Following';
+      friendBtn.classList.add('btn-outline');
     } else if (state === 'sent') {
-      friendBtn.textContent = 'Request sent';
+      friendBtn.textContent = 'Requested';
       friendBtn.classList.add('btn-ghost');
-      friendBtn.disabled = true;
     } else if (state === 'incoming') {
       friendBtn.textContent = 'Accept request';
       friendBtn.classList.add('btn-primary');
     } else {
-      friendBtn.textContent = 'Add friend';
-      friendBtn.classList.add('btn-outline');
+      friendBtn.textContent = 'Follow';
+      friendBtn.classList.add('btn-primary');
+    }
+  }
+
+  const followingBtn = document.getElementById('viewed-following-btn');
+  const followersBtn = document.getElementById('viewed-followers-btn');
+  const followingCountEl = document.getElementById('viewed-following-count');
+  const followersCountEl = document.getElementById('viewed-followers-count');
+  const postsCountEl = document.getElementById('viewed-posts-count');
+
+  function isLocked() {
+    return !!target.private && !(currentUser.friends || []).includes(target.uid);
+  }
+
+  async function refreshCounts() {
+    if (followingCountEl) followingCountEl.textContent = String((target.friends || []).length);
+    if (followersCountEl) {
+      try { followersCountEl.textContent = String((await fetchFollowers(target.uid)).length); }
+      catch (err) { followersCountEl.textContent = '–'; }
     }
   }
 
   async function renderPosts() {
-    const isFriend = (currentUser.friends || []).includes(target.uid);
-    if (target.private && !isFriend) {
+    if (isLocked()) {
       lockedEl.hidden = false;
       postsTitle.hidden = true;
       postsEl.innerHTML = '';
+      if (postsCountEl) postsCountEl.textContent = '–';
       return;
     }
     lockedEl.hidden = true;
     postsTitle.hidden = false;
     const snap = await getDocs(query(collection(db, 'posts'), where('authorUid', '==', target.uid)));
     let posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    posts = posts.filter((p) => p.visibility === 'offentlig' || isFriend);
+    // "Friends only" posts are for the people this user follows
+    const inTheirCircle = (target.friends || []).includes(currentUser.uid);
+    posts = posts.filter((p) => p.visibility !== 'venner' || inTheirCircle);
     posts.sort((a, b) => postSortKey(b) - postSortKey(a));
+    if (postsCountEl) postsCountEl.textContent = String(posts.length);
     postsEl.innerHTML = posts.length
       ? posts.map((p) => postToHTML(p, target.username)).join('')
       : '<p class="empty-hint">No visible reviews.</p>';
@@ -1410,15 +1634,37 @@ async function initViewedProfilePage() {
 
   friendBtn.addEventListener('click', async () => {
     const state = getFriendState(currentUser, target.uid);
-    if (state === 'none') await sendFriendRequest(target.uid);
-    if (state === 'incoming') await acceptFriendRequest(target.uid);
+    friendBtn.disabled = true;
+    try {
+      if (state === 'none') await followUser(target);
+      else if (state === 'incoming') await acceptFriendRequest(target.uid);
+      else if (state === 'sent') await cancelFollowRequest(target.uid);
+      else if (state === 'following') {
+        if (!confirm(`Unfollow @${target.username}?`)) { friendBtn.disabled = false; return; }
+        await unfollowUser(target.uid);
+      }
+    } catch (err) {
+      alert('Something went wrong: ' + (err && err.message ? err.message : 'unknown error'));
+    }
+    friendBtn.disabled = false;
     renderFriendButton();
     await renderPosts();
+    await refreshCounts();
     updateRequestBadges();
   });
 
+  function openList(title, loader, empty) {
+    if (isLocked()) { alert('Follow this account to see who they follow.'); return; }
+    peopleSheet.open(title, loader, empty, () => { renderFriendButton(); renderPosts(); refreshCounts(); });
+  }
+  followingBtn?.addEventListener('click', () => openList(
+    `Following · @${target.username}`, () => fetchUsersByIds(target.friends || []), 'Not following anyone yet.'));
+  followersBtn?.addEventListener('click', () => openList(
+    `Followers · @${target.username}`, () => fetchFollowers(target.uid), 'No followers yet.'));
+
   renderFriendButton();
   await renderPosts();
+  await refreshCounts();
 }
 
 /* ---------------- App shell guard ---------------- */
@@ -1500,38 +1746,90 @@ function mapCardHTML(group) {
   const heading = named.placeName || named.address;
   const avg = averageStars(posts);
   const gmaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(named.address)}`;
-  const rows = posts.map((p) => {
+  const many = posts.length > 1;
+
+  const slides = posts.map((p) => {
     const author = group.usersMap[p.authorUid];
     const who = author
       ? `<a href="bruker.html?u=${encodeURIComponent(author.username)}" class="feed-author-link">@${escapeHTML(author.username)}</a>`
       : '<span>@?</span>';
-    const thumb = p.photo
+    const photo = p.photo
       ? `<img src="${p.photo}" alt="" loading="lazy">`
       : `<span class="map-thumb-empty">${PIN_SVG}</span>`;
     const date = formatDate(p.postDate || p.createdAt);
     const vis = p.visibility === 'venner' ? '<span class="vis-pill">Friends only</span>' : '';
+    const tags = p.tags && p.tags.length
+      ? `<div class="post-tags">${p.tags.map((t) => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}</div>`
+      : '';
+    const likes = Array.isArray(p.likes) ? p.likes : [];
+    const liked = likes.includes(currentUser.uid);
+    const likeBtn = `<button type="button" class="like-btn${liked ? ' liked' : ''}" data-id="${p.id}" aria-pressed="${liked}" aria-label="Like this review">${HEART_SVG}<span class="like-count">${likes.length || ''}</span></button>`;
     return `
-      <div class="map-review">
-        <div class="map-thumb">${thumb}</div>
-        <div class="map-review-body">
-          <div class="map-review-top"><span class="stars">${starString(p.stars)}</span>${vis}</div>
-          ${p.text ? `<p class="map-review-text">${escapeHTML(p.text)}</p>` : ''}
-          <div class="map-review-meta">${who}${date ? `<span class="feed-date">${date}</span>` : ''}</div>
+      <article class="map-slide">
+        <div class="map-polaroid">
+          <div class="map-polaroid-photo">${photo}</div>
+          <div class="map-polaroid-cap">${starString(p.stars)}</div>
         </div>
-      </div>`;
+        <div class="map-slide-body">
+          <div class="map-review-top"><span class="map-score">${formatStars(p.stars)}</span>${vis}</div>
+          ${p.text ? `<p class="map-review-text">${escapeHTML(p.text)}</p>` : '<p class="map-review-text map-review-empty">No comment.</p>'}
+          ${tags}
+          <div class="map-review-meta"><span class="map-review-who">${who}${date ? `<span class="feed-date">${date}</span>` : ''}</span>${likeBtn}</div>
+        </div>
+      </article>`;
   }).join('');
+
+  const dots = many
+    ? `<div class="map-dots" aria-hidden="true">${posts.map((_, i) => `<button type="button" class="map-dot${i === 0 ? ' active' : ''}" data-i="${i}" tabindex="-1"></button>`).join('')}<span class="map-count">1 / ${posts.length}</span></div>`
+    : '';
+  const navBtns = many
+    ? `<button type="button" class="map-nav map-prev" aria-label="Previous review" hidden>‹</button><button type="button" class="map-nav map-next" aria-label="Next review">›</button>`
+    : '';
+
   return `
     <div class="map-card-head">
       <div class="map-card-title">
         <h3>${escapeHTML(heading)}</h3>
-        <div class="map-card-sub"><span class="stars">${starString(Math.round(avg || 0))}</span><span>${avg ? avg.toFixed(1) : '–'} · ${posts.length} ${posts.length === 1 ? 'review' : 'reviews'}</span></div>
+        <div class="map-card-sub">${starString(Math.round((avg || 0) * 2) / 2)}<span>${avg ? formatStars(Math.round(avg * 10) / 10) : '–'} · ${posts.length} ${posts.length === 1 ? 'review' : 'reviews'}</span></div>
         <a class="post-address-line" href="${gmaps}" target="_blank" rel="noopener">${PIN_SVG}<span>${escapeHTML(named.address)}</span></a>
       </div>
       <button type="button" class="modal-close" id="map-card-close" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
-    <div class="map-reviews">${rows}</div>`;
+    <div class="map-slider-wrap">
+      <div class="map-slider" tabindex="0" aria-label="${many ? 'Reviews, swipe to see the next one' : 'Review'}">${slides}</div>
+      ${navBtns}
+    </div>
+    ${dots}`;
+}
+
+// Swipe (or tap the arrows/dots) to move between reviews of the same place.
+function bindMapSlider(card) {
+  const slider = card.querySelector('.map-slider');
+  if (!slider || slider.children.length < 2) return;
+  const n = slider.children.length;
+  const dots = [...card.querySelectorAll('.map-dot')];
+  const count = card.querySelector('.map-count');
+  const prev = card.querySelector('.map-prev');
+  const next = card.querySelector('.map-next');
+  const index = () => Math.max(0, Math.min(n - 1, Math.round(slider.scrollLeft / Math.max(1, slider.clientWidth))));
+  const go = (i) => slider.scrollTo({ left: Math.max(0, Math.min(n - 1, i)) * slider.clientWidth, behavior: 'smooth' });
+  const update = () => {
+    const i = index();
+    dots.forEach((d, k) => d.classList.toggle('active', k === i));
+    if (count) count.textContent = `${i + 1} / ${n}`;
+    if (prev) prev.hidden = i === 0;
+    if (next) next.hidden = i === n - 1;
+  };
+  slider.addEventListener('scroll', update, { passive: true });
+  prev?.addEventListener('click', () => go(index() - 1));
+  next?.addEventListener('click', () => go(index() + 1));
+  dots.forEach((d) => d.addEventListener('click', () => go(Number(d.dataset.i))));
+  slider.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(index() + 1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); go(index() - 1); }
+  });
 }
 
 async function initMapPage() {
@@ -1626,6 +1924,7 @@ async function initMapPage() {
         closeCard();
         card.innerHTML = mapCardHTML(g);
         card.scrollTop = 0;
+        bindMapSlider(card);
         card.hidden = false;
         const node = marker.getElement()?.querySelector('.sw-pin');
         if (node) node.classList.add('selected');

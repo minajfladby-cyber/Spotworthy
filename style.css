@@ -1500,3 +1500,124 @@ body:has(.drawer.open, .modal-overlay.open, .sheet-overlay.open, .crop-overlay.o
   .feature-card, .step { text-align: center; }
   .feature-card .feature-icon, .step .step-number { display: flex; margin-left: auto; margin-right: auto; }
 }
+
+/* ---------------- Half-star ratings ---------------- */
+.star-row { display: inline-flex; gap: 1px; line-height: 1; vertical-align: middle; }
+.star-row i {
+  font-style: normal;
+  background: linear-gradient(90deg, var(--pink) var(--f, 0%), #efc9d3 var(--f, 0%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.stars { letter-spacing: 0; }
+
+.star-picker { align-items: center; gap: 2px; }
+.star-btn {
+  background: linear-gradient(90deg, var(--pink) var(--f, 0%), #e2dcdf var(--f, 0%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-size: 2.3rem;
+  padding: 0 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+.star-btn.active { color: transparent; }
+.star-value { margin-left: 10px; font: 700 0.95rem var(--font-body); color: rgba(23, 24, 28, 0.7); white-space: nowrap; }
+@media (pointer: coarse) {
+  .star-picker { margin-left: 0; gap: 0; }
+  .star-btn { min-width: 48px; }
+}
+
+/* ---------------- Following / followers ---------------- */
+.follow-stats { display: flex; justify-content: center; gap: 28px; margin: 18px 0 4px; }
+.stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: none; padding: 4px 6px; font-family: var(--font-body); color: var(--black);
+}
+.stat strong { font: 800 1.35rem var(--font-heading); line-height: 1.1; }
+.stat span { font-size: 0.8rem; color: rgba(23, 24, 28, 0.6); }
+.stat-btn { cursor: pointer; border-radius: 12px; }
+.stat-btn:hover span, .stat-btn:focus-visible span { color: var(--pink); }
+@media (pointer: coarse) { .stat-btn { min-width: 72px; min-height: 52px; } }
+
+.people-row-info { flex-direction: row !important; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+.people-avatar {
+  width: 44px; height: 44px; border-radius: 50%; flex: none; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--mint-mid); color: var(--mint-deep); font: 700 1.05rem var(--font-heading);
+}
+.people-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.people-names { display: flex; flex-direction: column; min-width: 0; }
+.people-names strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-row .btn { flex: none; margin-left: 10px; }
+
+/* ---------------- Search: people, tags and tagged reviews ---------------- */
+.search-section { font: 700 0.8rem var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: rgba(23, 24, 28, 0.5); margin: 18px 0 8px; }
+.tag-results { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-result {
+  border: 1.5px solid rgba(23, 24, 28, 0.12); background: var(--white); color: var(--black);
+  border-radius: 999px; padding: 8px 14px; font: 600 0.9rem var(--font-body); cursor: pointer;
+}
+.tag-result span { color: var(--pink); margin-left: 4px; }
+.tag-result:hover { border-color: var(--pink); }
+.search-posts { margin-top: 4px; gap: 16px; }
+@media (pointer: coarse) { .tag-result { min-height: 40px; } }
+
+/* ---------------- Map: swipeable reviews ---------------- */
+.map-card { padding: 14px 0 12px; }
+.map-card-head { padding: 0 16px; }
+.map-slider-wrap { position: relative; margin-top: 10px; }
+.map-slider {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; outline: none;
+}
+.map-slider::-webkit-scrollbar { display: none; }
+.map-slide {
+  flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always;
+  display: flex; gap: 14px; align-items: flex-start; padding: 8px 16px 4px; box-sizing: border-box;
+}
+.map-polaroid {
+  flex: none; width: 118px; background: var(--white); padding: 7px 7px 8px; border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(23, 24, 28, 0.2); transform: rotate(-3deg); margin-top: 2px;
+}
+.map-polaroid-photo { width: 100%; aspect-ratio: 1 / 1; border-radius: 3px; overflow: hidden; background: linear-gradient(135deg, var(--mint-mid), var(--pink-light)); }
+.map-polaroid-photo img { width: 100%; height: 100%; object-fit: cover; }
+.map-polaroid-cap { margin-top: 7px; font-size: 0.72rem; text-align: center; }
+.map-slide-body { flex: 1; min-width: 0; }
+.map-review-top { display: flex; align-items: center; gap: 8px; }
+.map-score { font: 800 1.15rem var(--font-heading); }
+.map-review-empty { color: rgba(23, 24, 28, 0.4); }
+.map-slide-body .post-tags { margin: 6px 0 0; }
+.map-review-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 0.8rem; color: rgba(23, 24, 28, 0.6); }
+.map-review-who { display: flex; gap: 8px; align-items: center; min-width: 0; flex-wrap: wrap; }
+
+.map-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255, 255, 255, 0.95); color: var(--black); font-size: 1.3rem; line-height: 1;
+  box-shadow: 0 2px 8px rgba(23, 24, 28, 0.25);
+}
+.map-prev { left: 2px; }
+.map-next { right: 2px; }
+.map-nav[hidden] { display: none; }
+@media (pointer: coarse) { .map-nav { display: none; } }
+
+.map-dots { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 8px; }
+.map-dot { width: 8px; height: 8px; padding: 0; border: none; border-radius: 50%; background: #e2dcdf; cursor: pointer; }
+.map-dot.active { background: var(--pink); width: 18px; border-radius: 6px; }
+.map-count { margin-left: 8px; font-size: 0.78rem; color: rgba(23, 24, 28, 0.55); }
+
+/* ---------------- Photo fix: photos must fill the polaroid frame ---------------- */
+.polaroid-photo > img,
+.feed-photo img,
+.post-photo-img,
+.rec-photo-img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  display: block;
+}

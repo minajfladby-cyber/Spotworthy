@@ -22,8 +22,6 @@
 </header>
 
 <main class="app-main">
-  <div class="friends-strip" id="friends-strip" aria-label="Your friends" hidden></div>
-
   <div class="feed-search">
     <input type="search" id="feed-search-input" class="text-input" enterkeyhint="search" autocapitalize="none" autocorrect="off" placeholder="Search pizza, coffee, a place ..." autocomplete="off">
   </div>
@@ -31,7 +29,7 @@
   <div class="search-tools" id="search-tools" hidden>
     <div class="chip-row" role="group" aria-label="Show posts from">
       <button type="button" class="chip scope-chip active" data-value="alle">All</button>
-      <button type="button" class="chip scope-chip" data-value="venner">Friends</button>
+      <button type="button" class="chip scope-chip" data-value="venner">Following</button>
       <button type="button" class="chip scope-chip" data-value="offentlig">Others</button>
       <span class="chip-divider"></span>
       <button type="button" class="chip sort-chip active" data-value="nyeste">Newest</button>
@@ -48,7 +46,7 @@
       </svg>
     </div>
     <h2 id="feed-empty-title">No reviews yet</h2>
-    <p id="feed-empty-text">Follow friends to see what they recommend, or tap + below to post your first review.</p>
+    <p id="feed-empty-text">Follow people to see what they recommend, or tap + below to post your first review.</p>
   </div>
   <div id="feed-list" class="feed-list"></div>
 </main>
@@ -100,7 +98,7 @@
 <div class="sheet-overlay" id="search-overlay">
   <div class="sheet">
     <div class="sheet-head">
-      <h3>Friends</h3>
+      <h3>Find people</h3>
       <button class="modal-close" id="search-close" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -112,7 +110,7 @@
       <button type="button" class="tab-btn" data-tab="requests">Requests <span class="tab-badge" id="requests-badge" hidden>0</span></button>
     </div>
     <div class="tab-panel" data-panel="search">
-      <input type="text" id="search-input" class="text-input" autocapitalize="none" autocorrect="off" enterkeyhint="search" placeholder="Search by name or username">
+      <input type="text" id="search-input" class="text-input" autocapitalize="none" autocorrect="off" enterkeyhint="search" placeholder="Search people or #tags">
       <div id="search-results" class="search-results"></div>
     </div>
     <div class="tab-panel" data-panel="requests" hidden>
